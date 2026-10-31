@@ -154,14 +154,17 @@ def build(res=None):
         ["Single-stream decode speed", f"{lmhead['tokens_per_s']:.1f} tok/s ({lmhead['ms_per_token']} ms/token, "
          f"RTF {lmhead['rtf_generation']:.2f}) vs {prec['bf16']['tokens_per_s']:.1f} tok/s for bf16",
          "step1d_overhead.json, step1b_precision.json"],
-        ["Time to first audio, 1 stream", f"{lv6c[1]['ttfa_ms_p50']:.0f} ms p50 ({lv6c[1]['ttfa_ms_p95']:.0f} ms p95)",
-         "step6c_final_sweep.json"],
+        ["Time to first audio, 1 stream",
+         f"{base[1]['ttfa_ms_p50']:.0f} → **{lv6c[1]['ttfa_ms_p50']:.0f} ms** p50 "
+         f"({lv6c[1]['ttfa_ms_p95']:.0f} ms p95 after)",
+         "baseline_sweep_levels.csv, step6c_final_sweep.json"],
         [f"Time to first audio, {max_n} streams",
          f"{top['ttfa_ms_p50']:.0f} ms p50 ({top['ttfa_ms_p95']:.0f} ms p95)", "step6c_final_sweep.json"],
         ["Max realtime streams per L4",
-         f"**{max_n}** (p95 RTF {top['rtf_p95']}, no gaps); **{margin_n}** with one level of margin "
-         f"(p95 RTF {lv6c[margin_n]['rtf_p95']}); {first_fail} fails (p95 RTF {lv6c[first_fail]['rtf_p95']})",
-         "step6c_final_sweep.json"],
+         f"{opt['baseline_per_stream_snac']['max_streams']} → **{max_n}** (p95 RTF {top['rtf_p95']}, no gaps); "
+         f"**{margin_n}** with one level of margin (p95 RTF {lv6c[margin_n]['rtf_p95']}); "
+         f"{first_fail} fails (p95 RTF {lv6c[first_fail]['rtf_p95']})",
+         "optimizations.csv, step6c_final_sweep.json"],
         ["WER vs bf16 (4-bit lm_head, step 5)",
          f"{F['lm_wer']} vs {F['bf16_wer']}: {F['lm_vs_bf16']}, within noise", "quality_baseline.json"],
         ["Tokenization pipeline throughput", f"{full['end_to_end_audio_hours_per_min']} hours of audio / min on one L4 "
@@ -190,14 +193,20 @@ def build(res=None):
         "6c_snac_cpu": "The CPU cannot keep up with the windows per second that 8 streams need.",
         "6c_final": "Server default. Lower time to first audio at every level; capacity unchanged, margin at 6 streams thinner.",
     }
-    order = ["baseline_per_stream_snac", "batched_snac", "fp8_weights", "6b_chunk4", "6b_chunk8", "6b_fp16",
+    order = ["baseline_per_stream_snac", "batched_snac", "6b_chunk4", "6b_chunk8", "6b_fp16",
              "6b_fp32_graph", "6b_fp16_graph_compile", "6b_same_process", "6b_wait1", "6b_wait2", "6b_final",
              "6c_first_wait3", "6c_first_wait2", "6c_first_wait1", "6c_snac_cpu", "6c_final"]
     rows = []
     for i in order:
         r = opt[i]
         ms = r["max_streams"] if r["levels"] else "—"
-        t1 = f"{float(r['ttfa_p50_ms_n1']):.0f}" if r["ttfa_p50_ms_n1"] else "—"
+        t1 = "—"
+        if r["ttfa_p50_ms_n1"]:
+            t1 = f"{float(r['ttfa_p50_ms_n1']):.0f}"
+        else:
+            m_ = re.search(r"TTFA p50/p95 (\d+)/\d+ ms", r["notes"])
+            if m_:
+                t1 = f"{m_.group(1)}†"
         status = r["status"].replace("candidate (superseded by first_wait2)", "superseded")
         rows.append([r["step"], r["change"].split(" (")[0] if len(r["change"]) > 70 else r["change"],
                      f"**{status}**" if status == "adopted" else status, ms, t1, reasons[i]])
@@ -218,6 +227,19 @@ def build(res=None):
                      f"{r['utilisation']['gpu_mem_gib_peak']:.1f}"])
     F["t_pipeline_runs"] = md_table(["run", "audio (h)", "end-to-end (h / min)", "GPU stage capacity (h / min)",
                                      "GPU busy", "peak GPU memory (GiB)"], rows)
+
+    # ---- listen
+    clips = cload("quality_baseline_clips.csv")
+    sent = next(c for c in clips if c["preset"] == "w4a16_lmhead" and c["file"] == "s04_seed0.wav")["expected"]
+    para = sweep["config"]["texts"]["paragraph"]
+    F["listen"] = "\n".join([
+        f"- [`step6c_first_chunk.wav`](results/samples/step6c_first_chunk.wav): the final server configuration "
+        f"(W4A16 + 4-bit lm_head, batched SNAC, early first chunk) streaming a paragraph: \"{para[:60]}…\"",
+        f"- [`quality/w4a16_lmhead_s04_seed0.wav`](results/samples/quality/w4a16_lmhead_s04_seed0.wav): the "
+        f"4-bit lm_head model reading a date and time from the quality set: \"{sent}\"",
+        f"- [`quality/bf16_s04_seed0.wav`](results/samples/quality/bf16_s04_seed0.wav): the same sentence and seed "
+        f"from the bf16 model, for comparison.",
+    ])
 
     # ---- facts for prose
     F["rt_tok"], F["rt_ms"] = f"{rt_tok:.1f}", f"{rt_ms:.1f}"

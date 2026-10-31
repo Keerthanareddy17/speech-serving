@@ -6,14 +6,21 @@ tokenization pipeline (parquet → decode → VAD → SNAC encode → shards), b
 NVIDIA L4. Every number in this README is read from a file in `results/`, which records the GPU,
 model, vLLM version and date of each run (vLLM 0.32.0, torch 2.13.0+cu130).
 
+## In short
+
+- Single-stream decode is memory-bandwidth-bound: W4A16 plus a 4-bit lm_head took Orpheus 3B from 36.5 to 123.3 tok/s (realtime needs 82.0) with WER within noise of bf16.
+- Serving: 6 realtime streams per L4 (from 2) and 137 ms to first audio (from 247); the remaining limit is vLLM and SNAC time-slicing the GPU across processes.
+- Time to first audio is not time to first speech: about 0.6 s of lead-in silence (finding and proposed fix below).
+- Pipeline: 53.4 h of LibriTTS-R tokenized at 6.68 h of audio/min on one L4, bound by the GPU encoder; fp16 rejected because it changes tokens.
+
 ## Headline results
 
 | metric | result | source (results/) |
 |---|---|---|
 | Single-stream decode speed | 123.3 tok/s (8.11 ms/token, RTF 0.67) vs 36.5 tok/s for bf16 | step1d_overhead.json, step1b_precision.json |
-| Time to first audio, 1 stream | 137 ms p50 (138 ms p95) | step6c_final_sweep.json |
+| Time to first audio, 1 stream | 247 → **137 ms** p50 (138 ms p95 after) | baseline_sweep_levels.csv, step6c_final_sweep.json |
 | Time to first audio, 6 streams | 187 ms p50 (214 ms p95) | step6c_final_sweep.json |
-| Max realtime streams per L4 | **6** (p95 RTF 0.996, no gaps); **5** with one level of margin (p95 RTF 0.979); 7 fails (p95 RTF 1.038) | step6c_final_sweep.json |
+| Max realtime streams per L4 | 2 → **6** (p95 RTF 0.996, no gaps); **5** with one level of margin (p95 RTF 0.979); 7 fails (p95 RTF 1.038) | optimizations.csv, step6c_final_sweep.json |
 | WER vs bf16 (4-bit lm_head, step 5) | 2.9% vs 2.5%: +0.40 pts [-0.62, +1.73], within noise | quality_baseline.json |
 | Tokenization pipeline throughput | 6.68 hours of audio / min on one L4 (GPU stage alone: 6.9) | pipeline.json |
 | Tokens per audio hour (SNAC 24 kHz, 7 tokens per frame) | 297,483 | pipeline.json |
@@ -30,36 +37,42 @@ Decode speed per precision (batch size 1, one stream, no server; realtime needs 
 
 ![Precision ladder](results/figures/precision_ladder.png)
 
+## Listen
+
+Samples are in `results/samples/` (GitHub offers a download or preview for each WAV).
+
+- [`step6c_first_chunk.wav`](results/samples/step6c_first_chunk.wav): the final server configuration (W4A16 + 4-bit lm_head, batched SNAC, early first chunk) streaming a paragraph: "Streaming speech synthesis is mostly a race against the list…"
+- [`quality/w4a16_lmhead_s04_seed0.wav`](results/samples/quality/w4a16_lmhead_s04_seed0.wav): the 4-bit lm_head model reading a date and time from the quality set: "The meeting is on March 3rd, 2025, at 4:30 in the afternoon."
+- [`quality/bf16_s04_seed0.wav`](results/samples/quality/bf16_s04_seed0.wav): the same sentence and seed from the bf16 model, for comparison.
+
 ## Architecture
 
-Serving path. One process owns the websocket server and the SNAC decoder; vLLM's engine core runs in its own
-process. All concurrent streams share one vLLM engine (continuous batching) and one batched SNAC decoder.
+Serving path. The websocket server and the SNAC decoder share one process; vLLM's engine core runs in its own
+process (Orpheus 3B, W4A16 + 4-bit lm_head). All concurrent streams share one vLLM engine (continuous batching,
+7 audio tokens per frame) and one batched SNAC decoder (one call for all streams, PCM16 at 24 kHz).
 
 ```mermaid
-flowchart LR
-    C[Client] -- "text + voice" --> WS["FastAPI websocket server<br/>/ws/tts"]
-    WS --> V["vLLM engine<br/>Orpheus 3B, W4A16 + 4-bit lm_head"]
-    V -- "audio token ids (7 per frame)" --> FA["Frame assembler +<br/>chunk planner"]
-    FA -- "windows of frames" --> SN["Batched SNAC decoder<br/>one call for all streams"]
-    SN -- "PCM16, 24 kHz" --> WS
-    WS -- "binary audio chunks" --> C
+flowchart TB
+    C[Client] -->|text| WS[Websocket server]
+    WS --> V[vLLM engine]
+    V -->|token ids| FA[Chunk planner]
+    FA -->|frame windows| SN[Batched SNAC decoder]
+    SN -->|PCM16 audio| WS
+    WS -->|audio chunks| C
 ```
 
-Tokenization pipeline. CPU worker processes decode and trim; one GPU process encodes; shards go to disk.
+Tokenization pipeline. CPU worker processes decode (WAV bytes) and trim (webrtcvad); one GPU process encodes in
+length-bucketed batches; token ids are written as zstd parquet shards.
 
 ```mermaid
 flowchart LR
-    P["Parquet<br/>(WAV bytes + text)"] --> D["Decode<br/>CPU workers"]
-    D --> VAD["VAD trim<br/>webrtcvad"]
-    VAD --> E["SNAC encode<br/>GPU, length-bucketed batches"]
-    E --> T["Codes → Orpheus token ids"]
-    T --> S["zstd parquet shards"]
+    P[Parquet] --> D[Decode] --> VAD[VAD trim] --> E[SNAC encode] --> T[Token ids] --> S[Shards]
 ```
 
 ## Optimisation ladder
 
-Single-stream decode speed is in the precision table above. Serving-side changes, in order, including the
-ones that were rejected. "Max realtime streams" is the highest load level with p95 RTF below 1.0, no gaps
+Single-stream decode speed, including the rejected fp8 variants, is in the precision table above; the ladder
+lists the serving-side changes, in order, including the ones that were rejected. "Max realtime streams" is the highest load level with p95 RTF below 1.0, no gaps
 and no errors, tested on that row's levels (screens test 4, 6 and 8 streams only). The full data is in
 `results/optimizations.csv`.
 
@@ -67,7 +80,6 @@ and no errors, tested on that row's levels (screens test 4, 6 and 8 streams only
 |---|---|---|---|---|---|
 | 4 | w4a16_lmhead + per-stream SNAC | baseline | 2 | 247 | One SNAC call per window on one worker thread; the worker saturates and throughput flattens. |
 | 6a | BatchedChunkDecoder: one SNAC call for all streams' pending windows | **adopted** | 4 | 245 | One SNAC call for every stream's pending window. SNAC no longer saturates; vLLM and SNAC now contend for the GPU. |
-| 1b | online fp8 weights (W8A8 CUTLASS), bf16 KV cache | tried, not adopted | — | — | Not realtime even for one stream; W4A16 is faster with no measurable WER loss. |
 | 6b | growing later chunks, cap 4 (buffer-aware; first chunk unchanged) | rejected | 4 | — | At the limit there is no playback-buffer slack, so chunks stay small; mixed window lengths split SNAC batches; small gaps at 6 streams. |
 | 6b | growing later chunks, cap 8 (buffer-aware; first chunk unchanged) | rejected | 6 | — | No capacity gain; savings only appear at loads that already pass. |
 | 6b | SNAC weights/activations in fp16 (eager) | rejected | 4 | — | Each new (batch, window length) shape costs seconds of cuDNN setup; unwarmed shapes hit it live and TTFA p95 spikes. Audio was fine. |
@@ -77,11 +89,13 @@ and no errors, tested on that row's levels (screens test 4, 6 and 8 streams only
 | 6b | --snac-max-wait-ms 1 | rejected | 4 | — | Batches did not grow (windows already arrive together); the wait only adds latency and gaps. |
 | 6b | --snac-max-wait-ms 2 | rejected | 4 | — | Same as 1 ms: no larger batches, more gaps. |
 | 6b | final 6b config = 6a batched SNAC | **adopted** | 6 | 247 | Fine sweep of the 6a configuration: 6a's coarse sweep had skipped levels 5-7. |
-| 6c | first chunk waits for 3 frames: frame 0 emitted with 2 right frames | superseded | 6 | — | Works, but superseded by the 2-frame first chunk. |
-| 6c | first chunk waits for 2 frames: frame 0 with 1 right frame; next frames ramp from 1 to 2 right frames as the client buffer allows | **adopted** | 6 | — | Smallest first chunk with clean audio; time to first audio drops at every load level. |
+| 6c | first chunk waits for 3 frames: frame 0 emitted with 2 right frames | superseded | 6 | 190† | Works, but superseded by the 2-frame first chunk. |
+| 6c | first chunk waits for 2 frames: frame 0 with 1 right frame; next frames ramp from 1 to 2 right frames as the client buffer allows | **adopted** | 6 | 135† | Smallest first chunk with clean audio; time to first audio drops at every load level. |
 | 6c | first chunk waits for 1 frame (frame 0 with no right context) | rejected | — | — | Audio not clean: the first frames have no right context. |
 | 6c | SNAC decode on the CPU (fp32, 12 cores) | rejected | — | — | The CPU cannot keep up with the windows per second that 8 streams need. |
 | 6c | final 6c config = 6b final + first chunk waits for 2 frames | **adopted** | 6 | 137 | Server default. Lower time to first audio at every level; capacity unchanged, margin at 6 streams thinner. |
+
+† Time to first audio from the 10-request, 1-stream screen recorded in the notes column of `results/optimizations.csv`.
 
 ![Time to first audio vs streams](results/figures/ttfa_vs_streams.png)
 
@@ -260,3 +274,7 @@ docker run --gpus all -p 8000:8000 -e HF_TOKEN -v /path/to/models:/models:ro spe
 ## License
 
 MIT, see `LICENSE`. The Orpheus and SNAC models carry their own licenses (check them before reuse); LibriTTS-R is CC BY 4.0.
+
+---
+
+Author: Keerthana Reddy Katasani · [LinkedIn](https://www.linkedin.com/in/keerthanareddy17/) · [GitHub](https://github.com/Keerthanareddy17)

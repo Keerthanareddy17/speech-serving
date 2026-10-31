@@ -5,6 +5,13 @@ tokenization pipeline (parquet → decode → VAD → SNAC encode → shards), b
 {{gpu}}. Every number in this README is read from a file in `results/`, which records the GPU,
 model, vLLM version and date of each run (vLLM {{vllm}}, torch {{torch}}).
 
+## In short
+
+- Single-stream decode is memory-bandwidth-bound: W4A16 plus a 4-bit lm_head took Orpheus 3B from {{bf16_tps}} to {{lm_tps}} tok/s (realtime needs {{rt_tok}}) with WER within noise of bf16.
+- Serving: {{max_n}} realtime streams per L4 (from {{base_max}}) and {{ttfa1_new}} ms to first audio (from {{ttfa1_old}}); the remaining limit is vLLM and SNAC time-slicing the GPU across processes.
+- Time to first audio is not time to first speech: about 0.6 s of lead-in silence (finding and proposed fix below).
+- Pipeline: {{pipe_hours}} h of LibriTTS-R tokenized at {{e2e}} h of audio/min on one L4, bound by the GPU encoder; fp16 rejected because it changes tokens.
+
 ## Headline results
 
 {{t_headline}}
@@ -15,40 +22,46 @@ Decode speed per precision (batch size 1, one stream, no server; realtime needs 
 
 ![Precision ladder](results/figures/precision_ladder.png)
 
+## Listen
+
+Samples are in `results/samples/` (GitHub offers a download or preview for each WAV).
+
+{{listen}}
+
 ## Architecture
 
-Serving path. One process owns the websocket server and the SNAC decoder; vLLM's engine core runs in its own
-process. All concurrent streams share one vLLM engine (continuous batching) and one batched SNAC decoder.
+Serving path. The websocket server and the SNAC decoder share one process; vLLM's engine core runs in its own
+process (Orpheus 3B, W4A16 + 4-bit lm_head). All concurrent streams share one vLLM engine (continuous batching,
+7 audio tokens per frame) and one batched SNAC decoder (one call for all streams, PCM16 at 24 kHz).
 
 ```mermaid
-flowchart LR
-    C[Client] -- "text + voice" --> WS["FastAPI websocket server<br/>/ws/tts"]
-    WS --> V["vLLM engine<br/>Orpheus 3B, W4A16 + 4-bit lm_head"]
-    V -- "audio token ids (7 per frame)" --> FA["Frame assembler +<br/>chunk planner"]
-    FA -- "windows of frames" --> SN["Batched SNAC decoder<br/>one call for all streams"]
-    SN -- "PCM16, 24 kHz" --> WS
-    WS -- "binary audio chunks" --> C
+flowchart TB
+    C[Client] -->|text| WS[Websocket server]
+    WS --> V[vLLM engine]
+    V -->|token ids| FA[Chunk planner]
+    FA -->|frame windows| SN[Batched SNAC decoder]
+    SN -->|PCM16 audio| WS
+    WS -->|audio chunks| C
 ```
 
-Tokenization pipeline. CPU worker processes decode and trim; one GPU process encodes; shards go to disk.
+Tokenization pipeline. CPU worker processes decode (WAV bytes) and trim (webrtcvad); one GPU process encodes in
+length-bucketed batches; token ids are written as zstd parquet shards.
 
 ```mermaid
 flowchart LR
-    P["Parquet<br/>(WAV bytes + text)"] --> D["Decode<br/>CPU workers"]
-    D --> VAD["VAD trim<br/>webrtcvad"]
-    VAD --> E["SNAC encode<br/>GPU, length-bucketed batches"]
-    E --> T["Codes → Orpheus token ids"]
-    T --> S["zstd parquet shards"]
+    P[Parquet] --> D[Decode] --> VAD[VAD trim] --> E[SNAC encode] --> T[Token ids] --> S[Shards]
 ```
 
 ## Optimisation ladder
 
-Single-stream decode speed is in the precision table above. Serving-side changes, in order, including the
-ones that were rejected. "Max realtime streams" is the highest load level with p95 RTF below 1.0, no gaps
+Single-stream decode speed, including the rejected fp8 variants, is in the precision table above; the ladder
+lists the serving-side changes, in order, including the ones that were rejected. "Max realtime streams" is the highest load level with p95 RTF below 1.0, no gaps
 and no errors, tested on that row's levels (screens test 4, 6 and 8 streams only). The full data is in
 `results/optimizations.csv`.
 
 {{t_ladder}}
+
+† Time to first audio from the 10-request, 1-stream screen recorded in the notes column of `results/optimizations.csv`.
 
 ![Time to first audio vs streams](results/figures/ttfa_vs_streams.png)
 
@@ -216,3 +229,7 @@ docker run --gpus all -p 8000:8000 -e HF_TOKEN -v /path/to/models:/models:ro spe
 ## License
 
 MIT, see `LICENSE`. The Orpheus and SNAC models carry their own licenses (check them before reuse); LibriTTS-R is CC BY 4.0.
+
+---
+
+Author: Keerthana Reddy Katasani · [LinkedIn](https://www.linkedin.com/in/keerthanareddy17/) · [GitHub](https://github.com/Keerthanareddy17)
