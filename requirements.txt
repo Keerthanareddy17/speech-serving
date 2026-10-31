@@ -1,11 +1,16 @@
-# vllm and torch are intentionally NOT listed yet: their exact versions get pinned in step 1
-# (they must match each other and the L4's CUDA driver).
+# GPU stack, pinned in step 1 (see docs/DECISIONS.md). vllm brings its matching torch.
+vllm==0.32.0
+torch==2.13.0  # pinned by vllm 0.32.0; built for CUDA 13.0
+snac==1.2.1
+# On Colab, first remove the preinstalled cu12 cuDNN, which clashes with torch's cu13 cuDNN:
+#   pip uninstall -y nvidia-cudnn-cu12
+#   pip install --force-reinstall --no-deps nvidia-cudnn-cu13==9.20.0.48
+
 fastapi
 uvicorn[standard]
 websockets
 numpy
 soundfile
-snac
 faster-whisper
 jiwer
 pydantic
