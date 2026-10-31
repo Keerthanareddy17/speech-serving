@@ -1,0 +1,12 @@
+# vllm and torch are intentionally NOT listed yet: their exact versions get pinned in step 1
+# (they must match each other and the L4's CUDA driver).
+fastapi
+uvicorn[standard]
+websockets
+numpy
+soundfile
+snac
+faster-whisper
+jiwer
+pydantic
+pytest

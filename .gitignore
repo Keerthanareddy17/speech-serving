@@ -1,0 +1,33 @@
+# Python caches / build artifacts
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.pytest_cache/
+.ipynb_checkpoints/
+
+# Virtual environments
+.venv/
+venv/
+
+# Audio: ignore all wavs except small samples in results/samples/
+*.wav
+!results/samples/*.wav
+
+# Secrets
+.env
+.env.*
+*token*
+*TOKEN*
+*secret*
+# ...but keep source code like pipeline/tokenize.py (gitignore matches names, not contents)
+!src/**/*.py
+!tests/**/*.py
+*.pem
+*.key
+
+# Big data lives on Drive (/content/drive/MyDrive/speech-infra), never in git
+data/
+shards/

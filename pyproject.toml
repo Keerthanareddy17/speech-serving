@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "speechserve"
+version = "0.0.0"
+description = "Realtime streaming TTS server (Orpheus 3B on vLLM, SNAC codec, FastAPI websocket) and audio tokenization pipeline."
+readme = "README.md"
+requires-python = ">=3.10"
+# Runtime deps live in requirements.txt for now; vllm/torch get pinned in step 1.
+dependencies = []
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
