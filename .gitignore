@@ -31,3 +31,6 @@ venv/
 # Big data lives on Drive (/content/drive/MyDrive/speech-infra), never in git
 data/
 shards/
+
+# Local chat notes and reports: never committed
+chat/
