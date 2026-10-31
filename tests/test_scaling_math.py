@@ -45,6 +45,28 @@ def test_checkpointing_saves_activation_memory():
     assert ckpt - logits == (SHAPE["L"] * sm.CKPT_SAVED_BYTES + sm.ACT_COEF) * sbd
 
 
+def test_chunked_loss_cuts_logits_memory():
+    tokens = 4096 * 2
+    naive = sm.logits_bytes(tokens)
+    chunked = sm.logits_bytes(tokens, chunked=True)
+    assert naive == sm.LOGITS_BYTES * tokens * sm.VOCAB
+    assert chunked == sm.LOGITS_BYTES * sm.LOGIT_CHUNK_TOKENS * sm.VOCAB
+    assert chunked < naive
+    # fewer tokens than one chunk: nothing to save
+    assert sm.logits_bytes(10, chunked=True) == sm.logits_bytes(10)
+    a_naive = sm.activation_bytes(SHAPE, 4096, 2, True)
+    a_chunk = sm.activation_bytes(SHAPE, 4096, 2, True, chunked_loss=True)
+    assert a_naive - a_chunk == naive - chunked
+
+
+def test_orpheus_layout_matches_measured_weight_size():
+    m = sm.load_measured()
+    r = sm.compute(m)
+    assert abs(r["orpheus_check"]["relative_diff"]) < 0.03
+    sh = sm.MODEL_SHAPES["Orpheus 3B (reference)"]
+    assert (sh["L"], sh["d"], sm.VOCAB) == (28, 3072, 156_940)
+
+
 def test_fsdp_shards_state_and_ddp_does_not():
     ddp = sm.per_gpu_memory(N, SHAPE, dict(kind="ddp", gpus=16, tp=1))
     f8 = sm.per_gpu_memory(N, SHAPE, dict(kind="fsdp", gpus=8, tp=1))

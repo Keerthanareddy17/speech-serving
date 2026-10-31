@@ -47,13 +47,19 @@ ACT_COEF = 34                  # bytes per (token * hidden) per layer, bf16, no 
                                # once flash attention removes the 5*a*s^2*b term). Approximation for SwiGLU.
 CKPT_RECOMPUTE_FACTOR = 8 / 6  # checkpointing re-runs the forward pass: 8*N*D instead of 6*N*D FLOPs
 CKPT_SAVED_BYTES = 2           # with checkpointing only each layer's bf16 input (2 bytes/elem) is stored
-LOGITS_BYTES = 8               # fp32 logits + fp32 logits-gradient per (token * vocab). A chunked/fused loss
-                               # would avoid most of this; we assume the naive loss.
+LOGITS_BYTES = 8               # fp32 logits + fp32 logits-gradient per (token * vocab)
+LOGIT_CHUNK_TOKENS = 1024      # chunked/fused cross-entropy: logits are computed and discarded this many
+                               # tokens at a time (recomputed in backward), so only one chunk is alive.
+                               # The chunk size is an assumption; common implementations use 512-4096.
 
 # Model shapes (layers, hidden, ffn, heads, kv heads). head_dim = 128 everywhere.
-VOCAB = 156_940                # Orpheus vocabulary (tied embedding / lm_head), from docs/DECISIONS.md
+VOCAB = 156_940                # Orpheus vocabulary (tied embedding / lm_head): docs/DECISIONS.md, step1d_profile.md
 MODEL_SHAPES = {
-    # Orpheus 3B = Llama-3.2-3B architecture with the extended vocabulary (assumed from the public config).
+    # Orpheus 3B: layers (28), hidden size (3072) and vocab (156,940) are RECORDED in this repo
+    # (docs/DECISIONS.md "tied 156,940 x 3072 embedding", results/step1d_profile.md "28 layers",
+    # "3072 x 156,940"). The FFN width (8192) and head counts (24 query / 8 KV) are NOT recorded in
+    # the repo; they are the Llama-3.2-3B values, ASSUMED. Cross-check: the layout implies the bf16 weight
+    # size that vLLM measured (results/step1b_precision.json, weights_gib). See `orpheus_check` in compute().
     "Orpheus 3B (reference)": dict(L=28, d=3072, ffn=8192, heads=24, kv=8, nominal=None),
     # The two target sizes. Nominal parameter count is what the task names; the shape is OUR assumed
     # Llama-style layout chosen to land near it (only used for activations; params use the nominal count).
@@ -88,6 +94,7 @@ def load_measured(root=ROOT):
     sweep = _load("results/step6c_final_sweep.json")
     overhead = _load("results/step1d_overhead.json")
     vbench = _load("results/step6a_vllm_batch_bench.json")
+    prec = _load("results/step1b_precision.json")
 
     best = next(r for r in overhead if r["variant"] == "lmhead_w4a16")
     lv = {r["streams"]: r for r in sweep["levels"]}
@@ -129,6 +136,7 @@ def load_measured(root=ROOT):
         "decode_tokens_per_s_b1": best["tokens_per_s"],
         "realtime_tokens_per_s_per_stream": rt_tok_s,
         "vllm_alone_ms_per_step": alone,
+        "orpheus_bf16_weights_gib": prec["bf16"]["weights_gib"],
         "gpu": sweep["gpu"],
         "vllm_version": sweep["vllm_version"],
         "torch_version": sweep["torch_version"],
@@ -163,24 +171,28 @@ def train_state_bytes(n_params):
     return parts
 
 
-def logits_bytes(tokens, vocab=VOCAB):
-    return LOGITS_BYTES * tokens * vocab
+def logits_bytes(tokens, vocab=VOCAB, chunked=False):
+    """Naive loss materialises logits for every token. A chunked/fused cross-entropy only keeps
+    LOGIT_CHUNK_TOKENS tokens of logits alive at a time."""
+    live = min(tokens, LOGIT_CHUNK_TOKENS) if chunked else tokens
+    return LOGITS_BYTES * live * vocab
 
 
-def activation_bytes(shape, seq, batch, checkpointing):
+def activation_bytes(shape, seq, batch, checkpointing, chunked_loss=False):
     """Activation memory for one micro-batch on one GPU (no tensor parallelism).
 
     No checkpointing: every layer keeps its intermediates: L * ACT_COEF * s * b * d.
     Checkpointing:    keep only each layer's input (2 bytes * s*b*d per layer) and recompute one layer
                       at a time in backward, so the peak adds one layer's full intermediates.
-    Both add the logits (tokens * vocab * LOGITS_BYTES), which does not depend on the number of layers."""
+    Both add the logits: tokens * vocab * LOGITS_BYTES for a naive loss, or only one chunk of tokens for a
+    chunked/fused cross-entropy. Logits do not depend on the number of layers."""
     L, d = shape["L"], shape["d"]
     sbd = seq * batch * d
     if checkpointing:
         layers = L * CKPT_SAVED_BYTES * sbd + ACT_COEF * sbd
     else:
         layers = L * ACT_COEF * sbd
-    return layers + logits_bytes(seq * batch)
+    return layers + logits_bytes(seq * batch, chunked=chunked_loss)
 
 
 def unit_param_counts(shape, vocab=VOCAB):
@@ -214,9 +226,12 @@ def per_gpu_memory(n_params, shape, strategy, seq=SEQ_LEN, batch=MICRO_BATCH):
     else:
         work = 0.0
     act_ckpt = activation_bytes(shape, seq, batch, True) / tp
+    act_ckpt_chunked = activation_bytes(shape, seq, batch, True, chunked_loss=True) / tp
     act_full = activation_bytes(shape, seq, batch, False) / tp
-    return {"state": state, "gathered": work, "act_ckpt": act_ckpt, "act_full": act_full,
-            "total_ckpt": state + work + act_ckpt, "total_full": state + work + act_full, "shard": shard}
+    return {"state": state, "gathered": work, "act_ckpt": act_ckpt, "act_ckpt_chunked": act_ckpt_chunked,
+            "act_full": act_full,
+            "total_ckpt": state + work + act_ckpt, "total_ckpt_chunked": state + work + act_ckpt_chunked,
+            "total_full": state + work + act_full, "shard": shard}
 
 
 def comm_volumes(n_params, shape, strategy, seq=SEQ_LEN, batch=MICRO_BATCH):
@@ -312,12 +327,23 @@ def compute(m):
         st = train_state_bytes(n)
         a_full = activation_bytes(sh, SEQ_LEN, MICRO_BATCH, False)
         a_ckpt = activation_bytes(sh, SEQ_LEN, MICRO_BATCH, True)
+        a_ckpt_ch = activation_bytes(sh, SEQ_LEN, MICRO_BATCH, True, chunked_loss=True)
         models[name] = {
             "n_params": n, "shape": sh, "shape_params": shape_params, "state": st,
-            "act_full": a_full, "act_ckpt": a_ckpt, "logits": logits_bytes(tok_micro),
+            "act_full": a_full, "act_ckpt": a_ckpt, "act_ckpt_chunked": a_ckpt_ch,
+            "logits": logits_bytes(tok_micro), "logits_chunked": logits_bytes(tok_micro, chunked=True),
             "one_gpu_full": st["total"] + a_full, "one_gpu_ckpt": st["total"] + a_ckpt,
+            "one_gpu_ckpt_chunked": st["total"] + a_ckpt_ch,
         }
     out["models"] = models
+    orph = MODEL_SHAPES["Orpheus 3B (reference)"]
+    implied = params_from_shape(orph["L"], orph["d"], orph["ffn"], orph["heads"], orph["kv"])
+    implied_gib = BYTES_WEIGHT_BF16 * implied / 2 ** 30
+    out["orpheus_check"] = {
+        "implied_params": implied, "implied_bf16_gib": implied_gib,
+        "measured_bf16_gib": m["orpheus_bf16_weights_gib"],
+        "relative_diff": implied_gib / m["orpheus_bf16_weights_gib"] - 1,
+    }
     out["usable_bytes"] = usable
 
     # b. strategies
@@ -331,6 +357,7 @@ def compute(m):
             rows.append({
                 "model": name, "strategy": sname, **s, **mem,
                 "fits_ckpt": mem["total_ckpt"] <= usable, "fits_full": mem["total_full"] <= usable,
+                "fits_ckpt_chunked": mem["total_ckpt_chunked"] <= usable,
                 "comm_intra": intra, "comm_inter": inter,
                 "comm_s": comm_seconds(intra, inter), "compute_s": comp,
                 "dp_size": s["gpus"] // s["tp"],
@@ -422,7 +449,7 @@ def render(r):
     a48, a8, a3 = mod["4.8B"], mod["800M"], mod["Orpheus 3B (reference)"]
     w(f"**Training state costs {r['bytes_per_param']} bytes per parameter, so an unsharded 4.8B model needs "
       f"{gb(a48['state']['total'])} GB before a single activation, which cannot fit on one "
-      f"{GPU_MEM_GB} GB GPU; 800M ({gb(a8['one_gpu_ckpt'])} GB with checkpointing) can.**\n")
+      f"{GPU_MEM_GB} GB GPU; 800M ({gb(a8['one_gpu_ckpt'])} GB with checkpointing and a naive loss) can.**\n")
     w("In plain words: each parameter is stored several times. Training keeps a bf16 copy to compute with, "
       "a bf16 gradient, and, because Adam needs high precision, an fp32 master copy plus two fp32 running "
       f"averages (m and v). {BYTES_WEIGHT_BF16} + {BYTES_GRAD_BF16} + {BYTES_MASTER_FP32} + {BYTES_ADAM_M} + "
@@ -434,26 +461,39 @@ def render(r):
       f"state            = {r['bytes_per_param']} * N_params\n"
       f"activations      = L * {ACT_COEF} * s * b * d  +  logits            (no checkpointing)\n"
       f"activations_ckpt = L * {CKPT_SAVED_BYTES} * s * b * d  +  {ACT_COEF} * s * b * d  +  logits\n"
-      f"logits           = s * b * V * {LOGITS_BYTES} bytes   (fp32 logits + fp32 gradient)\n"
+      f"logits (naive)   = s * b * V * {LOGITS_BYTES} bytes   (fp32 logits + fp32 gradient, all tokens at once)\n"
+      f"logits (chunked) = min(s*b, {LOGIT_CHUNK_TOKENS}) * V * {LOGITS_BYTES} bytes   (one chunk alive at a time)\n"
       "```\n"
       "Without checkpointing every layer keeps all its intermediate tensors for the backward pass. With "
       "checkpointing each layer keeps only its input and recomputes the rest during backward, one layer at "
       f"a time, so memory drops a lot but you pay one extra forward pass ({CKPT_RECOMPUTE_FACTOR - 1:.0%} more compute). "
-      f"The logits term is large because the vocabulary is {VOCAB:,} (audio tokens); a fused or chunked "
-      "loss would shrink it.\n")
+      f"The logits term is large because the vocabulary is {VOCAB:,} (audio tokens). A **naive loss** "
+      "computes the scores for every token in the micro-batch at once. A **chunked / fused cross-entropy** "
+      f"computes them {LOGIT_CHUNK_TOKENS} tokens at a time, turns each chunk straight into a loss and "
+      "gradient, and recomputes it in backward, so the full logits tensor never exists. Both are shown "
+      f"below; the chunk size ({LOGIT_CHUNK_TOKENS}) is **[assumed]**.\n")
     rows = []
     for name in ("Orpheus 3B (reference)", "800M", "4.8B"):
         x = mod[name]
         s = x["state"]
         rows.append([name, f"{x['n_params'] / 1e9:.2f}B", gb(s["weights_bf16"]), gb(s["grads_bf16"]),
-                     gb(s["optimizer"]), gb(s["total"]), gb(x["act_full"]), gb(x["act_ckpt"]),
-                     gb(x["one_gpu_full"]), gb(x["one_gpu_ckpt"])])
-    w(table(["model", "params", "weights", "grads", "optimizer", "state total", "activations (no ckpt)",
-             "activations (ckpt)", "total one GPU (no ckpt)", "total one GPU (ckpt)"], rows))
+                     gb(s["optimizer"]), gb(s["total"]), gb(x["logits"]), gb(x["logits_chunked"]),
+                     gb(x["act_full"]), gb(x["act_ckpt"]), gb(x["act_ckpt_chunked"]),
+                     gb(x["one_gpu_full"]), gb(x["one_gpu_ckpt"]), gb(x["one_gpu_ckpt_chunked"])])
+    w(table(["model", "params", "weights", "grads", "optimizer", "state total", "logits (naive)",
+             "logits (chunked)", "activations (no ckpt, naive loss)", "activations (ckpt, naive loss)",
+             "activations (ckpt, chunked loss)", "total one GPU (no ckpt, naive)",
+             "total one GPU (ckpt, naive)", "total one GPU (ckpt, chunked)"], rows))
     w("")
-    w("All columns in GB **[assumed]**. Model shapes used for activations (Orpheus's is assumed to be the "
-      "Llama-3.2-3B layout; the other two are our own Llama-style layouts sized to land near the nominal "
-      "count):\n")
+    oc = r["orpheus_check"]
+    w("All columns in GB **[assumed]**. Model shapes used for activations. **Orpheus 3B:** 28 layers, hidden "
+      f"size 3072 and vocabulary {VOCAB:,} are the real values recorded in this repo "
+      "(`docs/DECISIONS.md`, `results/step1d_profile.md`). The FFN width and head counts are not recorded "
+      "anywhere in the repo, so they are the Llama-3.2-3B values **[assumed]**. Cross-check **[measured]**: "
+      f"that layout gives {oc['implied_params'] / 1e9:.2f}B parameters, i.e. {oc['implied_bf16_gib']:.2f} GiB in "
+      f"bf16, against {oc['measured_bf16_gib']} GiB of weights that vLLM reported "
+      f"(`results/step1b_precision.json`), a {oc['relative_diff']:+.1%} difference. The 800M and 4.8B "
+      "layouts are our own Llama-style layouts sized to land near the nominal counts:\n")
     w(table(["model", "layers", "hidden", "ffn", "heads / kv heads", "params implied by shape"],
             [[n, x["shape"]["L"], x["shape"]["d"], x["shape"]["ffn"],
               f"{x['shape']['heads']} / {x['shape']['kv']}", f"{x['shape_params'] / 1e9:.2f}B"]
@@ -462,12 +502,13 @@ def render(r):
 
     # ---- b
     w("## b. How it splits across GPUs\n")
-    fits48 = [s["strategy"] for s in S if s["model"] == "4.8B" and s["fits_ckpt"]]
     nofit48 = [s["strategy"] for s in S if s["model"] == "4.8B" and not s["fits_ckpt"]]
+    nofit48_ch = [s["strategy"] for s in S if s["model"] == "4.8B" and not s["fits_ckpt_chunked"]]
     hs = next(s for s in S if s["model"] == "4.8B" and s["kind"] == "hsdp")
     f16 = next(s for s in S if s["model"] == "4.8B" and s["kind"] == "fsdp" and s["gpus"] == 16 and s["tp"] == 1)
     w(f"**For 4.8B on {GPU_MEM_GB} GB GPUs (usable {usable_gb:.0f} GB), everything fits with "
-      f"activation checkpointing except {', '.join(nofit48) if nofit48 else 'nothing'}; HSDP sends "
+      f"activation checkpointing except {', '.join(nofit48) if nofit48 else 'nothing'} (same with a chunked "
+      f"loss: {', '.join(nofit48_ch) if nofit48_ch else 'nothing'} does not fit); HSDP sends "
       f"{gb(hs['comm_inter'])} GB per GPU across nodes per step versus {gb(f16['comm_inter'])} GB for "
       f"16-way FSDP ({f16['comm_inter'] / hs['comm_inter']:.0f}× less).**\n")
     w("In plain words:\n"
@@ -504,13 +545,17 @@ def render(r):
         w(f"**{name}**\n")
         rows = []
         for s in [x for x in S if x["model"] == name]:
-            rows.append([s["strategy"], gb(s["state"]), gb(s["gathered"]), gb(s["total_ckpt"]),
-                         "yes" if s["fits_ckpt"] else "**NO**", gb(s["total_full"]),
-                         "yes" if s["fits_full"] else "**NO**",
+            def cell(total, ok):
+                return f"{gb(total)} " + ("fits" if ok else "**NO**")
+            rows.append([s["strategy"], gb(s["state"]), gb(s["gathered"]),
+                         cell(s["total_ckpt"], s["fits_ckpt"]),
+                         cell(s["total_ckpt_chunked"], s["fits_ckpt_chunked"]),
+                         cell(s["total_full"], s["fits_full"]),
                          gb(s["comm_intra"]), gb(s["comm_inter"]),
                          f"{s['comm_s'] * 1e3:,.0f}", f"{s['compute_s'] * 1e3:,.0f}"])
-        w(table(["strategy", "state GB", "gathered GB", "total GB (ckpt)", "fits?", "total GB (no ckpt)",
-                 "fits?", "in-node GB sent", "cross-node GB sent", "comm ms", "compute ms"], rows))
+        w(table(["strategy", "state GB", "gathered GB", "total GB (ckpt, naive loss)",
+                 "total GB (ckpt, chunked loss)", "total GB (no ckpt, naive loss)",
+                 "in-node GB sent", "cross-node GB sent", "comm ms", "compute ms"], rows))
         w("")
     w(f"Global batch implied: data-parallel size × {tok_micro:,} tokens, e.g. "
       f"{S[0]['global_batch_tokens']:,} tokens for 16-way data parallel **[assumed setup]**. A comm time "
@@ -640,7 +685,10 @@ def render(r):
         ["Bytes per parameter (training)", 16, "ASSUMED", "mixed-precision Adam (ZeRO accounting)"],
         ["Sequence length / micro-batch", f"{SEQ_LEN} / {MICRO_BATCH}", "ASSUMED", "our serving max_model_len; small micro-batch"],
         ["Activation coefficient", ACT_COEF, "ASSUMED", "Korthikanti et al. 2022, flash attention"],
-        ["Model shapes (800M, 4.8B; Orpheus layout)", "see section a", "ASSUMED", "our own Llama-style layouts"],
+        ["Orpheus layers / hidden / vocab", f"{MODEL_SHAPES['Orpheus 3B (reference)']['L']} / {MODEL_SHAPES['Orpheus 3B (reference)']['d']} / {VOCAB:,}", "recorded in repo", "docs/DECISIONS.md, results/step1d_profile.md"],
+        ["Orpheus FFN width and head counts", "see section a", "ASSUMED", "Llama-3.2-3B values; not recorded in repo; weight-size cross-check in section a"],
+        ["800M / 4.8B layouts", "see section a", "ASSUMED", "our own Llama-style layouts"],
+        ["Chunked-loss chunk size", f"{LOGIT_CHUNK_TOKENS} tokens", "ASSUMED", "typical fused cross-entropy chunk"],
         ["NVLink / inter-node bandwidth", f"{NVLINK_GBPS:.0f} / {INTERNODE_GBPS:.0f} GB/s per GPU", "ASSUMED",
          "H100 / 400 Gb NIC per GPU"],
         ["Dataset size", f"{DATASET_HOURS:,} hours", "ASSUMED", "the scale named in the task"],
