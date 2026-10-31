@@ -89,24 +89,63 @@ class Window:
 
 
 class ChunkPlanner:
+    """Decides when to decode which window.
+
+    First chunk: `first_chunk_frames` frames as soon as they (plus right context) exist, so TTFA is
+    unchanged. Later chunks: upstream uses 1 frame per window (`chunk_frames=1`). With a larger cap, a
+    chunk of c frames needs a window of c + left + right frames, so SNAC work per emitted frame falls from
+    4x (c=1) to 1.75x (c=4) or 1.4x (c=8), but the chunk can only be sent once all its frames exist.
+
+    Waiting for a big chunk is only safe while the client still has enough audio buffered. Given timing
+    hints (see `plan`), the planner waits for a full `chunk_frames` chunk only if the frames it still needs
+    are expected before the client's buffer runs out (minus a safety margin); otherwise it emits the
+    largest power-of-two chunk available now (at least 1 frame, i.e. upstream behaviour). Without hints
+    it always waits for full chunks (used by tests and offline decoding).
+    """
+
     def __init__(self, cfg: C.ChunkConfig | None = None):
         self.cfg = cfg or C.ChunkConfig()
         assert self.cfg.first_chunk_frames >= 1 and self.cfg.chunk_frames >= 1
         self.next_emit = 1 if self.cfg.skip_first_frame else 0
         self.n_chunks = 0
 
-    def plan(self, n_frames: int, final: bool = False) -> list[Window]:
-        """Windows that can be decoded now that `n_frames` frames exist (`final`: no more will come)."""
-        cfg, out = self.cfg, []
+    def _window(self, a: int, b: int, end: int) -> Window:
+        return Window(max(0, a - self.cfg.left_context), end, a, b)
+
+    def plan(self, n_frames: int, final: bool = False, buffer_s: float | None = None,
+             frame_s: float | None = None, decode_s: float = 0.0) -> list[Window]:
+        """Windows that can be decoded now that `n_frames` frames exist (`final`: no more will come).
+
+        Timing hints (all optional): `buffer_s` = audio the client has buffered but not yet played,
+        `frame_s` = recent time per generated frame for this stream, `decode_s` = recent SNAC time
+        (incl. queueing) for one chunk.
+        """
+        cfg, out, right = self.cfg, [], self.cfg.right_context
         while self.next_emit < n_frames:
             a = self.next_emit
-            b = a + (cfg.first_chunk_frames if self.n_chunks == 0 else cfg.chunk_frames)
-            if b + cfg.right_context <= n_frames:
-                win = Window(max(0, a - cfg.left_context), b + cfg.right_context, a, b)
+            if self.n_chunks == 0:
+                b = a + cfg.first_chunk_frames
+            else:
+                avail = n_frames - right - a              # frames that could be emitted right now
+                if avail >= cfg.chunk_frames:
+                    b = a + cfg.chunk_frames
+                elif avail >= 1 and not final:
+                    if buffer_s is not None and frame_s is not None:
+                        wait_s = (a + cfg.chunk_frames + right - n_frames) * frame_s
+                        if wait_s + decode_s + cfg.chunk_safety_ms / 1000 < buffer_s:
+                            break                         # safe to wait for a full-size chunk
+                        b = a + (1 << (avail.bit_length() - 1))   # largest power of two <= avail
+                    else:
+                        break                             # no timing info: wait for full chunks
+                else:
+                    b = a + max(avail, 0)                 # final: handled below
+            if b > a and b + right <= n_frames:
+                win = self._window(a, b, b + right)
             elif final and cfg.flush_tail:
-                # Last chunk: everything left, with whatever right context exists.
+                # Last chunk: everything left, with whatever right context exists. (Tail windows are
+                # shorter than the standard 4 frames, so with --snac-graphs they run eagerly.)
                 b = n_frames
-                win = Window(max(0, a - cfg.left_context), n_frames, a, b)
+                win = self._window(a, b, n_frames)
             else:
                 break
             out.append(win)
@@ -138,13 +177,16 @@ class ChunkDecoder(Protocol):
 class SNACDecoder:
     """Baseline decoder: one SNAC call per window, all streams' calls queued on one worker thread."""
 
-    def __init__(self, model: str = C.SNAC_MODEL, device: str = "cuda"):
+    def __init__(self, model: str = C.SNAC_MODEL, device: str = "cuda", dtype: str = "float32"):
         import torch
         from snac import SNAC
 
         self._torch = torch
         self.device = device
-        self.model = SNAC.from_pretrained(model).eval().to(device)
+        self.dtype = dtype
+        # Codes are integers; the decoder's weights/activations run in `dtype`; output is returned as fp32.
+        self.model = SNAC.from_pretrained(model).eval().to(device=device, dtype=getattr(torch, dtype))
+        self.graphs: dict[tuple[int, int], tuple] = {}   # (batch, window frames) -> (graph, inputs, output)
         # One worker thread: decode calls from all streams are serialised on the GPU, off the event loop.
         self._pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix="snac")
         self.calls = 0
@@ -169,6 +211,9 @@ class SNACDecoder:
 
     def decode(self, frames) -> tuple[np.ndarray, float]:
         """Synchronous decode of [n, 7] frames -> (float32 samples, ms)."""
+        if self.graphs:
+            audio, ms = self.decode_many([np.asarray(frames)])
+            return audio[0], ms
         torch = self._torch
         t0 = time.perf_counter()
         with torch.inference_mode():
@@ -176,15 +221,50 @@ class SNACDecoder:
             audio = self.model.decode(codes).squeeze().float().cpu().numpy()  # .cpu() waits for the GPU
         return audio, (time.perf_counter() - t0) * 1000
 
+    def capture_graphs(self, window_frames: int, max_batch: int) -> float:
+        """Record one CUDA graph per batch size 1..max_batch for `window_frames`-frame windows (step 6b).
+        A graph replays SNAC's whole kernel sequence with one launch; at small batches SNAC was launch-bound
+        (batch 1: 6.8 ms eager vs 1.6 ms graphed, fp32). All graphs share one memory pool: replays happen one
+        at a time on the single decode thread, and each output is copied to the CPU right after its replay.
+        Captured largest batch first, so smaller graphs reuse the big blocks (ascending order made the pool
+        grow to 2.1 GiB and run out of memory next to vLLM)."""
+        torch = self._torch
+        t0 = time.perf_counter()
+        pool = self._pool_handle = getattr(self, "_pool_handle", None) or torch.cuda.graph_pool_handle()
+        for b in range(max_batch, 0, -1):
+            shapes = [(b, window_frames), (b, 2 * window_frames), (b, 4 * window_frames)]
+            inputs = [torch.zeros(sh, dtype=torch.long, device=self.device) for sh in shapes]
+            side = torch.cuda.Stream()
+            side.wait_stream(torch.cuda.current_stream())
+            with torch.cuda.stream(side), torch.inference_mode():
+                for _ in range(2):
+                    self.model.decode(inputs)
+            torch.cuda.current_stream().wait_stream(side)
+            g = torch.cuda.CUDAGraph()
+            with torch.inference_mode(), torch.cuda.graph(g, pool=pool):
+                out = self.model.decode(inputs)
+            self.graphs[(b, window_frames)] = (g, inputs, out)
+        torch.cuda.synchronize()
+        return time.perf_counter() - t0
+
     def decode_many(self, frames_list) -> tuple[list[np.ndarray], float]:
         """Synchronous decode of several same-length windows in ONE SNAC call -> (samples per window, ms).
-        Each layer is stacked along the batch dimension: (B, n), (B, 2n), (B, 4n); no padding needed."""
+        Each layer is stacked along the batch dimension: (B, n), (B, 2n), (B, 4n); no padding needed.
+        Uses a recorded CUDA graph for this exact shape if one exists, else runs eagerly."""
         torch = self._torch
         t0 = time.perf_counter()
         layers = [np.stack(x) for x in zip(*(frames_to_layers(f) for f in frames_list))]
+        graph = self.graphs.get((len(frames_list), len(frames_list[0])))
         with torch.inference_mode():
             codes = [torch.from_numpy(x).to(self.device) for x in layers]
-            audio = self.model.decode(codes).float().cpu().numpy()  # (B, 1, T)
+            if graph is not None:
+                g, inputs, out = graph
+                for dst, src in zip(inputs, codes):
+                    dst.copy_(src)
+                g.replay()
+                audio = out.float().cpu().numpy()
+            else:
+                audio = self.model.decode(codes).float().cpu().numpy()  # (B, 1, T)
         return [audio[i, 0] for i in range(len(frames_list))], (time.perf_counter() - t0) * 1000
 
     async def decode_async(self, frames) -> tuple[np.ndarray, float]:
@@ -223,10 +303,14 @@ class BatchedChunkDecoder:
     and returns each stream its slice. While a batch decodes, new windows pile up, so batches grow with
     load by themselves; `max_wait_ms` > 0 additionally lets an idle worker wait that long for more."""
 
-    def __init__(self, snac: SNACDecoder | None = None, max_batch: int = 64, max_wait_ms: float = 0.0):
-        assert max_batch >= 1 and max_wait_ms >= 0
+    def __init__(self, snac: SNACDecoder | None = None, max_batch: int = 64, max_wait_ms: float = 0.0,
+                 max_frames: int = 320):
+        assert max_batch >= 1 and max_wait_ms >= 0 and max_frames >= 1
         self.snac = snac or SNACDecoder()
         self.max_batch, self.max_wait_ms = max_batch, max_wait_ms
+        # Memory cap per call, in frames (batch x window length): SNAC's activations grow with both, and
+        # vLLM leaves only ~2.7 GiB free (64 x 11-frame windows ran out of memory in step 6b).
+        self.max_frames = max_frames
         self._queue: list[_Pending] = []
         self._wakeup: asyncio.Event | None = None
         self._task: asyncio.Task | None = None
@@ -241,7 +325,7 @@ class BatchedChunkDecoder:
         return {"decoder": "batched", "snac_calls_total": self.calls, "snac_windows_total": self.windows,
                 "snac_busy_s_total": round(self.busy_s, 3), "snac_pending": len(self._queue) + self._inflight,
                 "snac_batch_max_seen": self.batch_max, "snac_max_batch": self.max_batch,
-                "snac_max_wait_ms": self.max_wait_ms}
+                "snac_max_frames": self.max_frames, "snac_max_wait_ms": self.max_wait_ms}
 
     async def decode_window(self, frames: list[list[int]], win: Window) -> AudioChunk:
         if self._task is None or self._task.done():
@@ -254,9 +338,12 @@ class BatchedChunkDecoder:
         audio, ms, wait_ms = await item.fut
         return AudioChunk(audio[win.keep_samples], win, ms, time.perf_counter(), wait_ms=wait_ms)
 
+    def batch_limit(self, window_frames: int) -> int:
+        return max(1, min(self.max_batch, self.max_frames // window_frames))
+
     def _take_batch(self) -> list[_Pending]:
         n = len(self._queue[0].frames)
-        batch = [it for it in self._queue if len(it.frames) == n][: self.max_batch]
+        batch = [it for it in self._queue if len(it.frames) == n][: self.batch_limit(n)]
         taken = set(map(id, batch))
         self._queue = [it for it in self._queue if id(it) not in taken]
         return batch
@@ -300,12 +387,39 @@ async def stream_audio(token_stream: AsyncIterator[list[int]], decoder: ChunkDec
 
     Pass your own `assembler` to read the token/frame counts (and frames) after the stream ends.
     Closing this generator early also closes `token_stream`, so the engine aborts the request.
+
+    For growing chunks (chunk_frames > 1) it tracks what the planner needs: the client's buffer (audio
+    sent minus time since the first chunk, i.e. assuming playback starts when the first chunk arrives),
+    this stream's time per generated frame since then, and its last SNAC time.
     """
     asm = assembler if assembler is not None else FrameAssembler()
-    planner = ChunkPlanner(chunk_cfg)
+    cfg = chunk_cfg or C.ChunkConfig()
+    planner = ChunkPlanner(cfg)
+    t_first = None            # when the first chunk was ready (= playback start)
+    n_at_first = 0
+    sent_s = 0.0
+    last_decode_s = 0.0
+
+    def hints(n: int) -> dict:
+        if cfg.chunk_frames == 1 or t_first is None or n <= n_at_first:
+            return {}
+        now = time.perf_counter()
+        return {"buffer_s": sent_s - (now - t_first), "frame_s": (now - t_first) / (n - n_at_first),
+                "decode_s": last_decode_s}
+
+    async def emit(win):
+        nonlocal t_first, n_at_first, sent_s, last_decode_s
+        chunk = await decoder.decode_window(asm.frames, win)
+        if t_first is None:
+            t_first, n_at_first = chunk.ready_s, len(asm.frames)
+        sent_s += len(chunk.pcm) / C.SAMPLE_RATE
+        last_decode_s = (chunk.decode_ms + chunk.wait_ms) / 1000
+        return chunk
+
     async with aclosing(token_stream):
         async for ids in token_stream:
-            for win in planner.plan(asm.push(ids)):
-                yield await decoder.decode_window(asm.frames, win)
+            n = asm.push(ids)
+            for win in planner.plan(n, **hints(n)):
+                yield await emit(win)
     for win in planner.plan(len(asm.frames), final=True):
-        yield await decoder.decode_window(asm.frames, win)
+        yield await emit(win)

@@ -66,6 +66,19 @@ def test_batched_logic_groups_caps_and_slices():
     assert st["snac_windows_total"] == 10 and st["snac_calls_total"] == len(fake.batch_sizes)
 
 
+def test_batched_logic_frame_cap_limits_long_windows():
+    fake = FakeSNAC()
+    dec = BatchedChunkDecoder(snac=fake, max_batch=64, max_frames=21)   # 7-frame windows -> at most 3 per call
+    frames = [window_frames(s, 7) for s in range(7)]
+
+    async def run():
+        return await asyncio.gather(*(dec.decode_window(f, Window(0, 7, 1, 5)) for f in frames))
+
+    asyncio.run(run())
+    assert max(fake.batch_sizes) <= 3 and sum(fake.batch_sizes) == 7
+    assert dec.batch_limit(4) == 5 and dec.batch_limit(30) == 1
+
+
 def test_batched_logic_cancelled_stream_is_skipped():
     fake = FakeSNAC()
     dec = BatchedChunkDecoder(snac=fake, max_batch=8)

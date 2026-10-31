@@ -650,6 +650,129 @@ from 6.7 to 16.6 audio s/s (2.5×), and TTFA at N=64 dropped from 1.40 s to 1.35
 (step 1b, tried, not adopted: 18 ms/token, not realtime even at one stream; W4A16 variants are faster
 with no measurable WER loss).
 
+## SNAC load reduction (step 6b, 2026-10-31)
+
+`--decoder batched` is now the server default (`per_stream` stays as a flag). Each change was tried
+**one at a time** against a reference screen of the 6a config: N = 4, 6, 8, 30 s per level, same
+method as before. Rows are in `results/optimizations.csv`, raw screens in `results/screen/`.
+SNAC-only changes were micro-benchmarked first (`results/step6b_snac_bench.json`), and audio-changing
+ones were checked against an fp32, noise-off, whole-sequence decode of the same tokens
+(`results/step6b_audio_check.json`, `scripts/step6b_audio_check.py`).
+
+### What was tried
+| change | max passing (of 4/6/8) | N=8 RTF p95 | vLLM ms/token at 8 | SNAC busy at 8 | decision |
+|---|---|---|---|---|---|
+| reference (6a: batched, chunk 1, fp32, wait 0) | 6 | 1.047 | 12.16 | 0.39 | — |
+| growing chunks, cap 4 | 4 | 1.082 | 12.09 | 0.44 | rejected |
+| growing chunks, cap 8 | 6 | 1.058 | 12.33 | 0.46 | rejected |
+| SNAC fp16 (eager) | 4 | 1.108 | 12.33 | 0.50 | rejected |
+| SNAC CUDA graphs (fp32) | 6 | 1.081 | 12.60 | 0.48 | rejected |
+| fp16 + graphs, torch.compile | — | — | — | — | not screened |
+| engine core in-process / MPS | — | — | — | — | not possible here |
+| max_wait 1 ms | 4 | 1.086 | 12.51 | 0.52 | rejected |
+| max_wait 2 ms | 4 | 1.082 | 12.60 | 0.52 | rejected |
+
+**1. Growing later chunks** (`--chunk-frames`, `ChunkPlanner`).
+- **Idea:** a chunk of c frames needs a (c+3)-frame window, so SNAC work per emitted frame falls
+  from 4× to 1.75× (c=4) or 1.4× (c=8).
+- **Trade-off:** a chunk can only be sent once all its frames exist. With a fixed c=4 after the
+  1-frame first chunk, the client's 85 ms buffer would run dry and **every stream would gap after the
+  first chunk** (~150 ms).
+- **Implementation:** chunks are buffer-aware. The server tracks the client's buffer (audio sent
+  minus time since the first chunk) and this stream's frame rate. It waits for a full-size chunk only
+  if the missing frames are expected before the buffer runs out, minus the last SNAC time and 50 ms.
+  Otherwise it sends what it has, in power-of-two pieces. The first chunk is unchanged, so TTFA is
+  unchanged.
+- **Audio:** bigger chunks agree *better* with the whole decode (SNR 25.1 → 27.7 / 30.5 / 33.2 dB
+  for caps 1 / 2 / 4 / 8; no boundary clicks).
+- **Rejected:** at the breaking point (N=8) streams run at realtime, so there's no buffer slack and
+  chunks stay at 1 frame. Mixed window lengths also split SNAC batches (2.6–2.8 vs 4.1), and SNAC got
+  *busier*. Savings only appeared at loads that already pass (N=4 SNAC busy 0.41 → 0.24). Cap 4 also
+  produced small gaps at N=6 (≤ 9 ms).
+
+**2. SNAC precision, graphs, compile** (micro-benchmark, 4-frame windows, ms per call alone):
+
+| | b=1 | b=4 | b=8 | b=16 | error vs fp32 |
+|---|---|---|---|---|---|
+| fp32 | 6.8 | 7.3 | 7.9 | 17.0 | — |
+| fp16 | 7.4 | 7.3 | 7.4 | 9.9 | 3.3e-3 rel. RMS; 53.9 dB SNR on the paragraph |
+| bf16 | 7.1 | 7.1 | 7.2 | 10.1 | 2.7e-2 (8× fp16's error, so dropped) |
+| fp32 compile / fp16 compile | 2.8 / 3.0 | 3.4 / 3.0 | 5.9 / 3.5 | 13.6 / 6.6 | ≈ dtype |
+| fp32 graph / fp16 graph | 1.6 / 1.1 | 3.4 / 2.3 | 6.2 / 4.2 | 16.1 / 8.8 | ≈ dtype |
+
+- **The 6a "~7 ms floor" was CPU launch overhead.** Graphs cut batch 1 to 1.1–1.6 ms.
+- **fp16 eager: rejected.** It's slower in the server: each new (batch, length) shape costs ~1 s of
+  cuDNN setup (warmup 68 s vs 4 s), and unwarmed tail shapes hit it live (TTFA p95 0.9–1.1 s).
+- **fp32 graphs: rejected.** They're 2–4× faster alone, but in the server SNAC calls only dropped
+  from 16–18 to 13.5 ms. A SNAC call's in-server time is dominated by waiting for its GPU time slice
+  next to vLLM's process, not by its own work. Faster calls also shrank batches (2.3 vs 4.1).
+- **fp16 + graphs and compile: not screened**, for the same reason: they cut SNAC kernel time, which
+  isn't what costs time in the server.
+- Two fixes found on the way, both kept in the code:
+  - graphs must be captured largest batch first, or the shared pool grows to 2.1 GiB and runs out of
+    memory next to vLLM (largest first: 1.31 GiB fp32 / 0.69 GiB fp16);
+  - **`--snac-max-frames` (default 320)** caps frames per SNAC call (batch × window length). The cap-8
+    warmup (64 × 11-frame windows) ran out of memory without it. It's inactive for 4-frame windows at
+    max_batch 64.
+
+**3. Same process: not possible with vLLM 0.32's AsyncLLM.**
+- `EngineCoreClient.make_client` raises `NotImplementedError` for asyncio without multiprocessing.
+  `VLLM_ENABLE_V1_MULTIPROCESSING=0` only affects the sync `LLMEngine`, which would need a custom
+  threaded serving loop and likely lose async scheduling (~2 ms/token).
+- **MPS** (the other way to stop time-slicing): `nvidia-cuda-mps-control` exits with code 1 before
+  logging, in this container.
+- Took ~3 minutes of the 20-minute box; nothing was changed.
+
+**4. `--snac-max-wait-ms` 1 and 2: rejected.** Batches didn't grow (2.8–2.9 vs 4.1 at N=8).
+Streams' windows already arrive together, since they come out of the same vLLM step, so the wait
+only adds latency (an asyncio sleep of "1 ms" costs ~4 ms here) and caused gaps at N=6.
+
+### Final config and fine sweep
+Final config = 6a batched SNAC (now the default), chunk cap 1, fp32 eager, max_wait 0, plus the
+inactive frame cap. `results/step6b_final_sweep.csv` / `_levels.csv` / `.json`, 60 s per level:
+
+| N | reqs | TTFA p50 / p95 | RTF p50 / p95 | reqs with gaps | buffer p95 | throughput (audio s/s) | SNAC busy | batch | SNAC ms/call | vLLM ms/token | client CPU |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 1 | 7 | 247 / 249 ms | 0.72 / 0.73 | 0% | 0 | 1.38 | 0.24 | 1.0 | 15.0 | 8.7 | 0.5% |
+| 4 | 24 | 307 / 318 ms | 0.88 / 0.90 | 0% | 0 | 4.57 | 0.45 | 1.8 | 15.6 | 10.5 | 1.0% |
+| 5 | 25 | 311 / 340 ms | 0.92 / 0.95 | 0% | 0 | 5.45 | 0.47 | 2.1 | 16.0 | 11.0 | 1.1% |
+| **6** | 30 | **325 / 340 ms** | 0.95 / **0.986** | **0%** | 0 | 6.31 | 0.45 | 2.6 | 16.1 | 11.4 | 1.2% |
+| 7 | 32 | 324 / 366 ms | 0.99 / 1.04 | 44% | 50 ms | 7.16 | 0.39 | 3.6 | 16.8 | 11.8 | 1.4% |
+| 8 | 36 | 342 / 392 ms | 1.06 / 1.11 | 78% | 1.8 s | 7.53 | 0.60 | 2.3 | 16.4 | 12.8 | 1.6% |
+| 10 | 45 | 383 / 409 ms | 1.14 / 1.18 | 96% | 3.1 s | 8.85 | 0.45 | 3.8 | 17.4 | 13.6 | 1.7% |
+| 12 | 48 | 419 / 466 ms | 1.22 / 1.28 | 96% | 4.5 s | 9.94 | 0.47 | 4.3 | 17.9 | 14.6 | 1.7% |
+| 16 | 48 | 438 / 599 ms | 1.47 / 1.49 | 100% | 8.6 s | 11.33 | 0.44 | 6.6 | 22.2 | 17.0 | 1.8% |
+
+**Max streams: 6.** Errors 0 at every level.
+- This is not a 6b gain: 6a's sweep jumped from 4 to 8, and the reference screen of the 6a config
+  already passed N=6.
+- N=7 fails narrowly (RTF p95 1.04, 44% of requests with gaps up to ~50 ms).
+
+**Quality:** `results/step6b_quality.json`. The step 5 harness on w4a16_lmhead through the batched
+decoder:
+- all 60 clips have the same tokens as step 5 (vLLM is deterministic for sequential seeded requests);
+- WER 2.87% (format-insensitive 0.84%), identical to step 5; difference 0.0 on all 30 sentences.
+
+That confirms the decoder path doesn't change intelligibility. It is not an independent quality sample.
+
+`results/samples/step6b_final.wav`: same tokens and length as `step3_ws.wav`, correlation 0.998, no
+clipping.
+
+### The limit now
+**vLLM's per-token time, inflated by sharing the GPU with SNAC in another process.**
+- In the server, vLLM takes 11.4 ms/token at N=6 and 11.8 at N=7. The realtime limit is 12.2, and
+  p95 tails cross it at 7. Alone, vLLM would take ~8.6 ms at these batch sizes.
+- SNAC is only ~45% busy, so neither part is saturated alone.
+- Every SNAC-side change that shrinks SNAC's own work left vLLM's per-token time unchanged.
+  The two processes take turns on the GPU, so the time vLLM loses depends on how often SNAC runs, not
+  on how much work each call does.
+- **Options this step couldn't use:**
+  - run SNAC inside vLLM's process, or vLLM inside ours: needs a custom serving loop around the sync
+    engine;
+  - MPS: blocked in this container;
+  - **decode SNAC on the CPU** (12 cores, ~94 windows/s needed at N=8): removes the GPU contention
+    entirely; worth a micro-benchmark next.
+
 ## Tokenization pipeline
 
 ## Measurement methodology

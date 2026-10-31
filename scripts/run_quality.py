@@ -25,10 +25,9 @@ from speechserve import quality as Q  # noqa: E402
 PRESETS = ["bf16", "w4a16", "w4a16_lmhead"]
 DRIVE = Path("/content/drive/MyDrive/speech-infra/quality")
 EXAMPLES = [4, 10, 28]   # a date, the names, a tongue twister (seed 0) -> results/samples/quality/
-OUT_JSON = ROOT / "results/quality_baseline.json"
-OUT_CSV = ROOT / "results/quality_baseline_clips.csv"
+DEFAULT_OUT = "results/quality_baseline"   # -> <out>.json + <out>_clips.csv
 CSV_FIELDS = ["preset", "sid", "seed", "file", "tokens", "audio_s", "finish_reason", "wer", "cer",
-              "ref_words", "word_errors", "wer_fmt", "cer_fmt", "word_errors_fmt", "expected", "transcribed",
+              "ref_words", "word_errors", "wer_fmt", "cer_fmt", "word_errors_fmt", "ref_words_fmt", "expected", "transcribed",
               "ref_norm", "hyp_norm", "ref_fmt", "hyp_fmt"]
 
 
@@ -38,14 +37,19 @@ def main():
     ap.add_argument("--run", default="baseline", help="subfolder under the Drive quality dir")
     ap.add_argument("--skip-generate", action="store_true")
     ap.add_argument("--score-only", action="store_true")
+    ap.add_argument("--decoder", default="batched", choices=["batched", "per_stream"],
+                    help="SNAC decoder for generation (step 5 used per_stream; the server default is batched since 6b)")
+    ap.add_argument("--out", default=DEFAULT_OUT, help="results prefix (writes <out>.json and <out>_clips.csv)")
+    ap.add_argument("--baseline-csv", help="clips CSV of an earlier run: adds a paired bootstrap vs the same preset")
     ap.add_argument("--worker-generate", help=argparse.SUPPRESS)
     ap.add_argument("--worker-transcribe", action="store_true", help=argparse.SUPPRESS)
     args = ap.parse_args()
     run_dir = DRIVE / args.run
     dirs = [run_dir / p for p in args.presets]
 
+    OUT_JSON, OUT_CSV = ROOT / f"{args.out}.json", ROOT / f"{args.out}_clips.csv"
     if args.worker_generate:                                  # child process: one engine
-        Q.run_generate(args.worker_generate, run_dir / args.worker_generate)
+        Q.run_generate(args.worker_generate, run_dir / args.worker_generate, decoder_kind=args.decoder)
         return
     if args.worker_transcribe:                                # child process: Whisper only
         Q.transcribe(dirs)
@@ -53,7 +57,8 @@ def main():
 
     if not (args.skip_generate or args.score_only):
         for p in args.presets:
-            subprocess.run([sys.executable, __file__, "--run", args.run, "--worker-generate", p], check=True)
+            subprocess.run([sys.executable, __file__, "--run", args.run, "--decoder", args.decoder,
+                            "--worker-generate", p], check=True)
     if not args.score_only:
         subprocess.run([sys.executable, __file__, "--run", args.run, "--presets", *args.presets,
                         "--worker-transcribe"], check=True)
@@ -82,10 +87,11 @@ def main():
         meta[p] = {k: manifest[k] for k in ("date", "gpu", "model", "vllm_version", "torch_version", "engine",
                                             "sampling", "chunk", "voice", "seeds", "path")}
         meta["whisper"] = tr["meta"]
-        qdir = ROOT / "results/samples/quality"
-        qdir.mkdir(parents=True, exist_ok=True)
-        for sid in EXAMPLES:
-            shutil.copy(d / Q.clip_name(sid, 0), qdir / f"{p}_{Q.clip_name(sid, 0)}")
+        if args.out == DEFAULT_OUT:                           # examples only for the baseline run
+            qdir = ROOT / "results/samples/quality"
+            qdir.mkdir(parents=True, exist_ok=True)
+            for sid in EXAMPLES:
+                shutil.copy(d / Q.clip_name(sid, 0), qdir / f"{p}_{Q.clip_name(sid, 0)}")
 
     comparisons = {}
     if "bf16" in per:
@@ -95,6 +101,22 @@ def main():
                 other = [r for r in all_rows if r["preset"] == p]
                 comparisons[f"{p}_minus_bf16"] = Q.paired_bootstrap(base, other)
                 comparisons[f"{p}_minus_bf16_format_insensitive"] = Q.paired_bootstrap(base, other, key="wer_fmt")
+
+    if args.baseline_csv:
+        base_rows = list(csv.DictReader(open(ROOT / args.baseline_csv)))
+        for p in args.presets:
+            prev = [{**r, "sid": int(r["sid"]), "seed": int(r["seed"]),
+                     **{k: float(r[k]) for k in ("wer", "cer", "wer_fmt", "cer_fmt")},
+                     **{k: int(r[k]) for k in ("word_errors", "word_errors_fmt", "ref_words")},
+                     "ref_words_fmt": int(r["ref_words_fmt"]) if r.get("ref_words_fmt") else len(r["ref_fmt"].split())}
+                    for r in base_rows if r["preset"] == p]
+            cur = [r for r in all_rows if r["preset"] == p]
+            if prev:
+                comparisons[f"{p}_vs_baseline_csv"] = {
+                    "baseline_csv": args.baseline_csv,
+                    "baseline_summary": Q.summarize(prev), "baseline_summary_format_insensitive": Q.summarize(prev, "wer_fmt"),
+                    "diff_official": Q.paired_bootstrap(prev, cur),
+                    "diff_format_insensitive": Q.paired_bootstrap(prev, cur, key="wer_fmt")}
 
     first = next(iter(meta.values()))
     result = {
@@ -108,6 +130,7 @@ def main():
                    "metrics": "jiwer wer/cer per clip on normalised text; corpus_wer = total errors / total words",
                    "bootstrap": "paired over sentences (mean of seeds), 10000 resamples, 95% percentile CI",
                    "generation": meta},
+        "decoder": args.decoder,
         "per_config": per,
         "comparisons": comparisons,
     }

@@ -37,18 +37,18 @@ def clip_name(sid: int, seed: int) -> str:
 
 
 # ---- 1. generation -----------------------------------------------------------------------------------
-async def generate(preset: str, out_dir: Path, seeds=DEFAULT_SEEDS) -> dict:
+async def generate(preset: str, out_dir: Path, seeds=DEFAULT_SEEDS, decoder_kind: str = "batched") -> dict:
     import soundfile as sf
     import torch
     import vllm
 
-    from .codec import FrameAssembler, SNACDecoder, stream_audio
+    from .codec import BatchedChunkDecoder, FrameAssembler, SNACDecoder, stream_audio
     from .engine import TTSEngine
 
     out_dir.mkdir(parents=True, exist_ok=True)
     sentences = load_sentences()
     engine = TTSEngine(preset)
-    decoder = SNACDecoder()
+    decoder = BatchedChunkDecoder(SNACDecoder()) if decoder_kind == "batched" else SNACDecoder()
     chunk_cfg = C.ChunkConfig()
 
     async def synth(text, seed):
@@ -77,7 +77,8 @@ async def generate(preset: str, out_dir: Path, seeds=DEFAULT_SEEDS) -> dict:
         "gpu": torch.cuda.get_device_name(0), "model": engine.engine_args["model"],
         "vllm_version": vllm.__version__, "torch_version": torch.__version__,
         "engine": engine.engine_args, "sampling": engine.sampling.to_dict(), "chunk": chunk_cfg.to_dict(),
-        "voice": VOICE, "seeds": list(seeds), "path": "TTSEngine.stream -> codec.stream_audio (per-stream SNAC)",
+        "voice": VOICE, "seeds": list(seeds),
+        "path": f"TTSEngine.stream -> codec.stream_audio ({decoder_kind} SNAC decoder)",
         "clips": clips,
     }
     (out_dir / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
@@ -242,5 +243,5 @@ def seed_noise(rows: list[dict], key: str = "wer") -> dict:
             "mean_wer_seed_a": round(float(s0.mean()), 4), "mean_wer_seed_b": round(float(s1.mean()), 4)}
 
 
-def run_generate(preset: str, out_dir: Path, seeds=DEFAULT_SEEDS) -> dict:
-    return asyncio.run(generate(preset, out_dir, seeds))
+def run_generate(preset: str, out_dir: Path, seeds=DEFAULT_SEEDS, decoder_kind: str = "batched") -> dict:
+    return asyncio.run(generate(preset, out_dir, seeds, decoder_kind))

@@ -82,7 +82,11 @@ class ChunkConfig:
     of right context around the 1 frame that is emitted.
     """
     first_chunk_frames: int = 1   # audio frames in the first chunk (tuned in step 6)
-    chunk_frames: int = 1         # audio frames in each later chunk
+    # Max audio frames in each later chunk. 1 = upstream (one window per frame). > 1 (step 6b): chunks
+    # grow in powers of two up to this cap, but only while the client's buffer can cover the wait
+    # (see codec.ChunkPlanner); without timing info the planner waits for full-size chunks.
+    chunk_frames: int = 1
+    chunk_safety_ms: float = 50.0  # extra margin on top of the measured SNAC time when deciding to wait
     left_context: int = 1         # frames decoded before the emitted ones and thrown away (upstream: 1)
     right_context: int = 2        # frames decoded after the emitted ones and thrown away (upstream: 2)
     skip_first_frame: bool = True  # upstream never emits frame 0 (its window starts at frame 1)

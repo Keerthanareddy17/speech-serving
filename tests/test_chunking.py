@@ -79,3 +79,44 @@ def test_stitching_covers_each_frame_once(first, chunk, skip):
     # first chunk carries `first` frames and needs right_context frames after it
     assert first_win.emit_end - first_win.emit_start == first
     assert first_win.decode_end == start + first + cfg.right_context
+
+
+# ---- step 6b: growing chunks with timing hints ---------------------------------------------------------
+def test_growing_chunks_wait_when_buffer_allows():
+    p = ChunkPlanner(C.ChunkConfig(chunk_frames=4))
+    assert p.plan(4) == [Window(0, 4, 1, 2)]                     # first chunk unchanged (TTFA)
+    # 5 frames: 1 more frame could go now; plenty of buffer -> wait for a 4-frame chunk
+    assert p.plan(5, buffer_s=1.0, frame_s=0.06, decode_s=0.02) == []
+    assert p.plan(8, buffer_s=1.0, frame_s=0.06, decode_s=0.02) == [Window(1, 8, 2, 6)]
+
+
+def test_growing_chunks_emit_now_when_buffer_is_short():
+    p = ChunkPlanner(C.ChunkConfig(chunk_frames=4))
+    p.plan(4)
+    # 7 frames: 3 could go now (frames 2..4), buffer too short to wait for frame 9 -> emit everything
+    # available, in power-of-two pieces: 2 frames, then 1
+    assert p.plan(7, buffer_s=0.05, frame_s=0.06, decode_s=0.02) == [Window(1, 6, 2, 4), Window(3, 7, 4, 5)]
+    assert p.plan(7, buffer_s=0.05, frame_s=0.06, decode_s=0.02) == []
+
+
+def test_chunk_cap_1_ignores_hints():
+    p = ChunkPlanner(C.ChunkConfig())
+    p.plan(4)
+    assert p.plan(5, buffer_s=10.0, frame_s=0.01) == [Window(1, 5, 2, 3)]
+
+
+@pytest.mark.parametrize("cap", [2, 4, 8])
+def test_growing_chunks_stitch_every_frame_once(cap):
+    """Random buffer hints: whatever the planner decides, each frame is emitted exactly once, in order,
+    every window keeps full right context until the final flush, and sizes are powers of two <= cap."""
+    rng = np.random.default_rng(cap)
+    cfg = C.ChunkConfig(chunk_frames=cap)
+    p, n_total, out = ChunkPlanner(cfg), 60, []
+    for n in range(1, n_total + 1):
+        for w in p.plan(n, buffer_s=float(rng.uniform(0, 0.5)), frame_s=0.07, decode_s=0.02):
+            size = w.emit_end - w.emit_start
+            assert w.decode_end - w.emit_end == cfg.right_context and size <= cap and size & (size - 1) == 0
+            out.append(np.repeat(np.arange(w.decode_start, w.decode_end), C.SAMPLES_PER_FRAME)[w.keep_samples])
+    for w in p.plan(n_total, final=True):
+        out.append(np.repeat(np.arange(w.decode_start, w.decode_end), C.SAMPLES_PER_FRAME)[w.keep_samples])
+    assert np.array_equal(np.concatenate(out), np.repeat(np.arange(1, n_total), C.SAMPLES_PER_FRAME))

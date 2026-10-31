@@ -1,0 +1,322 @@
+[
+  {
+    "variant": "chunk1",
+    "date": "2026-10-31T09:49:43+00:00",
+    "gpu": "NVIDIA L4",
+    "model": "w4a16_lmhead tokens; SNAC hubertsiuzdak/snac_24khz",
+    "vllm_version": "0.32.0",
+    "torch_version": "2.13.0+cu130",
+    "python_version": "3.13.16",
+    "config": {
+      "chunk": {
+        "first_chunk_frames": 1,
+        "chunk_frames": 1,
+        "chunk_safety_ms": 50.0,
+        "left_context": 1,
+        "right_context": 2,
+        "skip_first_frame": true,
+        "flush_tail": true
+      },
+      "snac_dtype": "float32",
+      "noise": "off",
+      "tf32": true,
+      "reference": "fp32 whole-sequence decode, noise off",
+      "frames_file": "/content/drive/MyDrive/speech-infra/step6b/paragraph_frames.json",
+      "replay_decode_s": 0.02
+    },
+    "frames": 192,
+    "windows": 190,
+    "later_chunk_sizes": {
+      "1": 188
+    },
+    "snac_frames_decoded_per_emitted_frame": 3.974,
+    "stream_vs_whole": {
+      "snr_db": 25.14,
+      "max_abs_diff": 0.04888,
+      "correlation": 0.99847
+    },
+    "boundary": {
+      "n": 189,
+      "max_jump": 0.0651,
+      "max_jump_excess_vs_whole": 0.0249,
+      "p99_9_jump_anywhere": 0.1704
+    }
+  },
+  {
+    "variant": "chunk2",
+    "date": "2026-10-31T09:49:51+00:00",
+    "gpu": "NVIDIA L4",
+    "model": "w4a16_lmhead tokens; SNAC hubertsiuzdak/snac_24khz",
+    "vllm_version": "0.32.0",
+    "torch_version": "2.13.0+cu130",
+    "python_version": "3.13.16",
+    "config": {
+      "chunk": {
+        "first_chunk_frames": 1,
+        "chunk_frames": 2,
+        "chunk_safety_ms": 50.0,
+        "left_context": 1,
+        "right_context": 2,
+        "skip_first_frame": true,
+        "flush_tail": true
+      },
+      "snac_dtype": "float32",
+      "noise": "off",
+      "tf32": true,
+      "reference": "fp32 whole-sequence decode, noise off",
+      "frames_file": "/content/drive/MyDrive/speech-infra/step6b/paragraph_frames.json",
+      "replay_decode_s": 0.02
+    },
+    "frames": 192,
+    "windows": 98,
+    "later_chunk_sizes": {
+      "1": 4,
+      "2": 92
+    },
+    "snac_frames_decoded_per_emitted_frame": 2.529,
+    "stream_vs_whole": {
+      "snr_db": 27.67,
+      "max_abs_diff": 0.04473,
+      "correlation": 0.99914
+    },
+    "boundary": {
+      "n": 97,
+      "max_jump": 0.055,
+      "max_jump_excess_vs_whole": 0.0243,
+      "p99_9_jump_anywhere": 0.1711
+    }
+  },
+  {
+    "variant": "chunk4",
+    "date": "2026-10-31T09:49:56+00:00",
+    "gpu": "NVIDIA L4",
+    "model": "w4a16_lmhead tokens; SNAC hubertsiuzdak/snac_24khz",
+    "vllm_version": "0.32.0",
+    "torch_version": "2.13.0+cu130",
+    "python_version": "3.13.16",
+    "config": {
+      "chunk": {
+        "first_chunk_frames": 1,
+        "chunk_frames": 4,
+        "chunk_safety_ms": 50.0,
+        "left_context": 1,
+        "right_context": 2,
+        "skip_first_frame": true,
+        "flush_tail": true
+      },
+      "snac_dtype": "float32",
+      "noise": "off",
+      "tf32": true,
+      "reference": "fp32 whole-sequence decode, noise off",
+      "frames_file": "/content/drive/MyDrive/speech-infra/step6b/paragraph_frames.json",
+      "replay_decode_s": 0.02
+    },
+    "frames": 192,
+    "windows": 55,
+    "later_chunk_sizes": {
+      "1": 7,
+      "2": 1,
+      "3": 1,
+      "4": 44
+    },
+    "snac_frames_decoded_per_emitted_frame": 1.853,
+    "stream_vs_whole": {
+      "snr_db": 30.53,
+      "max_abs_diff": 0.03597,
+      "correlation": 0.99956
+    },
+    "boundary": {
+      "n": 54,
+      "max_jump": 0.055,
+      "max_jump_excess_vs_whole": 0.0149,
+      "p99_9_jump_anywhere": 0.1709
+    }
+  },
+  {
+    "variant": "chunk8",
+    "date": "2026-10-31T09:50:00+00:00",
+    "gpu": "NVIDIA L4",
+    "model": "w4a16_lmhead tokens; SNAC hubertsiuzdak/snac_24khz",
+    "vllm_version": "0.32.0",
+    "torch_version": "2.13.0+cu130",
+    "python_version": "3.13.16",
+    "config": {
+      "chunk": {
+        "first_chunk_frames": 1,
+        "chunk_frames": 8,
+        "chunk_safety_ms": 50.0,
+        "left_context": 1,
+        "right_context": 2,
+        "skip_first_frame": true,
+        "flush_tail": true
+      },
+      "snac_dtype": "float32",
+      "noise": "off",
+      "tf32": true,
+      "reference": "fp32 whole-sequence decode, noise off",
+      "frames_file": "/content/drive/MyDrive/speech-infra/step6b/paragraph_frames.json",
+      "replay_decode_s": 0.02
+    },
+    "frames": 192,
+    "windows": 38,
+    "later_chunk_sizes": {
+      "1": 13,
+      "2": 1,
+      "5": 1,
+      "8": 21
+    },
+    "snac_frames_decoded_per_emitted_frame": 1.586,
+    "stream_vs_whole": {
+      "snr_db": 33.24,
+      "max_abs_diff": 0.02657,
+      "correlation": 0.99976
+    },
+    "boundary": {
+      "n": 37,
+      "max_jump": 0.0488,
+      "max_jump_excess_vs_whole": 0.0244,
+      "p99_9_jump_anywhere": 0.1714
+    }
+  },
+  {
+    "variant": "fp16",
+    "date": "2026-10-31T10:06:54+00:00",
+    "gpu": "NVIDIA L4",
+    "model": "w4a16_lmhead tokens; SNAC hubertsiuzdak/snac_24khz",
+    "vllm_version": "0.32.0",
+    "torch_version": "2.13.0+cu130",
+    "python_version": "3.13.16",
+    "config": {
+      "chunk": {
+        "first_chunk_frames": 1,
+        "chunk_frames": 1,
+        "chunk_safety_ms": 50.0,
+        "left_context": 1,
+        "right_context": 2,
+        "skip_first_frame": true,
+        "flush_tail": true
+      },
+      "snac_dtype": "float16",
+      "noise": "off",
+      "tf32": true,
+      "reference": "fp32 whole-sequence decode, noise off",
+      "frames_file": "/content/drive/MyDrive/speech-infra/step6b/paragraph_frames.json",
+      "replay_decode_s": 0.02
+    },
+    "frames": 192,
+    "windows": 190,
+    "later_chunk_sizes": {
+      "1": 188
+    },
+    "snac_frames_decoded_per_emitted_frame": 3.974,
+    "stream_vs_whole": {
+      "snr_db": 25.13,
+      "max_abs_diff": 0.04888,
+      "correlation": 0.99847
+    },
+    "boundary": {
+      "n": 189,
+      "max_jump": 0.0649,
+      "max_jump_excess_vs_whole": 0.0246,
+      "p99_9_jump_anywhere": 0.1703
+    },
+    "whole_dtype_vs_whole_fp32": {
+      "snr_db": 53.86,
+      "max_abs_diff": 0.00106,
+      "correlation": 1.0
+    }
+  },
+  {
+    "variant": "fp32_graph",
+    "date": "2026-10-31T10:13:05+00:00",
+    "gpu": "NVIDIA L4",
+    "model": "w4a16_lmhead tokens; SNAC hubertsiuzdak/snac_24khz",
+    "vllm_version": "0.32.0",
+    "torch_version": "2.13.0+cu130",
+    "python_version": "3.13.16",
+    "config": {
+      "chunk": {
+        "first_chunk_frames": 1,
+        "chunk_frames": 1,
+        "chunk_safety_ms": 50.0,
+        "left_context": 1,
+        "right_context": 2,
+        "skip_first_frame": true,
+        "flush_tail": true
+      },
+      "snac_dtype": "float32",
+      "snac_graphs": true,
+      "noise": "off",
+      "tf32": true,
+      "reference": "fp32 whole-sequence decode, noise off",
+      "frames_file": "/content/drive/MyDrive/speech-infra/step6b/paragraph_frames.json",
+      "replay_decode_s": 0.02
+    },
+    "frames": 192,
+    "windows": 190,
+    "later_chunk_sizes": {
+      "1": 188
+    },
+    "snac_frames_decoded_per_emitted_frame": 3.979,
+    "stream_vs_whole": {
+      "snr_db": 25.14,
+      "max_abs_diff": 0.04888,
+      "correlation": 0.99847
+    },
+    "boundary": {
+      "n": 189,
+      "max_jump": 0.0651,
+      "max_jump_excess_vs_whole": 0.0249,
+      "p99_9_jump_anywhere": 0.1704
+    }
+  },
+  {
+    "variant": "fp16_graph",
+    "date": "2026-10-31T10:13:12+00:00",
+    "gpu": "NVIDIA L4",
+    "model": "w4a16_lmhead tokens; SNAC hubertsiuzdak/snac_24khz",
+    "vllm_version": "0.32.0",
+    "torch_version": "2.13.0+cu130",
+    "python_version": "3.13.16",
+    "config": {
+      "chunk": {
+        "first_chunk_frames": 1,
+        "chunk_frames": 1,
+        "chunk_safety_ms": 50.0,
+        "left_context": 1,
+        "right_context": 2,
+        "skip_first_frame": true,
+        "flush_tail": true
+      },
+      "snac_dtype": "float16",
+      "snac_graphs": true,
+      "noise": "off",
+      "tf32": true,
+      "reference": "fp32 whole-sequence decode, noise off",
+      "frames_file": "/content/drive/MyDrive/speech-infra/step6b/paragraph_frames.json",
+      "replay_decode_s": 0.02
+    },
+    "frames": 192,
+    "windows": 190,
+    "later_chunk_sizes": {
+      "1": 188
+    },
+    "snac_frames_decoded_per_emitted_frame": 3.979,
+    "stream_vs_whole": {
+      "snr_db": 25.13,
+      "max_abs_diff": 0.04888,
+      "correlation": 0.99847
+    },
+    "boundary": {
+      "n": 189,
+      "max_jump": 0.0649,
+      "max_jump_excess_vs_whole": 0.0246,
+      "p99_9_jump_anywhere": 0.1703
+    },
+    "whole_dtype_vs_whole_fp32": {
+      "snr_db": 53.86,
+      "max_abs_diff": 0.00106,
+      "correlation": 1.0
+    }
+  }
+]
