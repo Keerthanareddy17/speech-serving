@@ -14,13 +14,8 @@ Prompt format, special token ids and the token -> SNAC code mapping are taken fr
 """
 
 import argparse
-import contextlib
 import json
-import os
 import platform
-import re
-import sys
-import tempfile
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -74,6 +69,8 @@ PRECISIONS = {
     "fp8_marlin": {"quantization": "fp8", "linear_backend": "marlin"},
     # GPTQ 4-bit weights, group size 128, made by scripts/quantize_w4a16.py (lives on Drive, not git).
     "w4a16": {"model": "/content/drive/MyDrive/speech-infra/models/orpheus-3b-w4a16"},
+    # Same, plus lm_head quantized to W4A16 (step 1d; scripts/quantize_w4a16.py --lm-head).
+    "w4a16_lmhead": {"model": "/content/drive/MyDrive/speech-infra/models/orpheus-3b-w4a16-lmhead"},
 }
 # Sampling defaults from engine_class.py `generate_tokens_sync` (with the corrected stop token).
 SAMPLING = dict(
@@ -84,17 +81,6 @@ SAMPLING = dict(
     stop_token_ids=[END_OF_SPEECH],
     seed=0,
 )
-# Lines vLLM's engine process logs at startup that we keep as metrics.
-ENGINE_LOG_METRICS = {
-    "weights_gib": (r"Model loading took ([\d.]+) GiB", float),
-    "kv_cache_gib": (r"Available KV cache memory: ([\d.]+) GiB", float),
-    "kv_cache_tokens": (r"GPU KV cache size: ([\d,]+) tokens", lambda s: int(s.replace(",", ""))),
-    "attention_backend": (r"Using (\w+) attention backend", str),
-    # Matmul kernel for the quantized linear layers; None for plain bf16 (no quantized kernel selected).
-    "linear_kernel": (r"(?:Selected|Using) (\w+Kernel) for", str),
-}
-
-
 def build_prompt_ids(tokenizer, text, voice):
     text_ids = tokenizer(f"{voice}: {text}").input_ids  # includes Llama BOS 128000, as upstream
     return [START_OF_HUMAN, *text_ids, END_OF_TEXT, END_OF_HUMAN, START_OF_AI, START_OF_SPEECH]
@@ -115,36 +101,15 @@ def tokens_to_snac_codes(token_ids):
     return [torch.from_numpy(x).unsqueeze(0) for x in (layer0, layer1, layer2)], len(audio)
 
 
-@contextlib.contextmanager
-def capture_output(path):
-    """Send this process's stdout/stderr (and any child process started inside) to `path`.
+def kv_cache_tokens(llm):
+    """KV cache capacity in tokens, as resolved by the engine at startup (read from config, no engine call).
 
-    vLLM's engine runs in a child process, so its startup log (weights memory, KV cache size) is
-    only reachable by redirecting the OS-level file descriptors it inherits.
+    Step 1b/1c read this and the weights size by capturing the engine's stdout/stderr. That capture slowed
+    the engine's decode loop by ~7 ms/token (exposed once the GPU step got shorter than that CPU work),
+    so it was removed in step 1d.
     """
-    sys.stdout.flush()
-    sys.stderr.flush()
-    saved = os.dup(1), os.dup(2)
-    with open(path, "w") as f:
-        os.dup2(f.fileno(), 1)
-        os.dup2(f.fileno(), 2)
-        try:
-            yield
-        finally:
-            sys.stdout.flush()
-            sys.stderr.flush()
-            os.dup2(saved[0], 1)
-            os.dup2(saved[1], 2)
-            os.close(saved[0])
-            os.close(saved[1])
-
-
-def parse_engine_log(text):
-    out = {}
-    for key, (pattern, cast) in ENGINE_LOG_METRICS.items():
-        m = re.search(pattern, text)
-        out[key] = cast(m.group(1)) if m else None
-    return out
+    cache = llm.llm_engine.vllm_config.cache_config
+    return cache.num_gpu_blocks * cache.block_size if cache.num_gpu_blocks else None
 
 
 def gpu_used_gib():
@@ -171,16 +136,10 @@ def main():
     assert tokenizer.convert_tokens_to_ids("<custom_token_10>") == AUDIO_TOKEN_BASE, "token offset mismatch"
     prompt_ids = build_prompt_ids(tokenizer, TEXT, VOICE)
 
-    log_path = Path(tempfile.gettempdir()) / f"step1_engine_{precision}.log"
     t0 = time.perf_counter()
-    try:
-        with capture_output(log_path):
-            llm = LLM(**engine_args)
-    except Exception:
-        print(log_path.read_text()[-5000:], file=sys.stderr)
-        raise
+    llm = LLM(**engine_args)
     load_s = time.perf_counter() - t0
-    engine_stats = parse_engine_log(log_path.read_text())
+    kv_tokens = kv_cache_tokens(llm)
 
     # One short warmup request so the timed run excludes first-request overheads.
     llm.generate(TokensPrompt(prompt_token_ids=prompt_ids), SamplingParams(max_tokens=16), use_tqdm=False)
@@ -226,7 +185,7 @@ def main():
         "rtf_generation": round(gen_s / duration_s, 3),
         "rtf_total": round((gen_s + decode_s) / duration_s, 3),
         "gpu_mem_used_gib": gpu_used,
-        **engine_stats,
+        "kv_cache_tokens": kv_tokens,
         "output_wav": str(out_wav.relative_to(ROOT)),
     }
     if args.precision:
@@ -245,9 +204,7 @@ def main():
     print(f"audio duration    : {duration_s:.2f} s")
     print(f"real-time factor  : {gen_s / duration_s:.3f} (generation) / {(gen_s + decode_s) / duration_s:.3f} (gen+decode)"
           "  [<1 = faster than realtime]")
-    print(f"GPU memory        : {gpu_used} GiB used on device; weights {engine_stats['weights_gib']} GiB, "
-          f"KV cache {engine_stats['kv_cache_gib']} GiB = {engine_stats['kv_cache_tokens']} tokens; "
-          f"attention {engine_stats['attention_backend']}; linear {engine_stats['linear_kernel']}")
+    print(f"GPU memory        : {gpu_used} GiB used on device; KV cache {kv_tokens} tokens")
     print(f"saved             : {out_wav}  +  {out_json}")
 
 

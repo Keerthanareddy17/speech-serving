@@ -82,19 +82,24 @@ measure next, one at a time: FP8 weights (Ada supports FP8; halves bytes per tok
 `results/step1b_precision.json`, from `scripts/step1_generate.py --precision {bf16,fp8,fp8_kv}`. Same
 sentence and seed as step 1, one fresh process per run, batch size 1.
 
-| precision | tok/s | ms/token | RTF (gen) | weights | KV cache            | attention  | load time |
-|-----------|-------|----------|-----------|---------|---------------------|------------|-----------|
-| bf16      | 36.7  | 27.2     | 2.24      | 6.2 GiB | 11.4 GiB, 107k tok  | FLASH_ATTN | 44 s      |
-| fp8       | 40.1  | 24.9     | 2.05      | 3.73 GiB| 13.2 GiB, 124k tok  | FLASH_ATTN | 98 s      |
-| fp8 + fp8 KV | 41.3 | 24.2  | 1.99      | 3.73 GiB| 12.8 GiB, 239k tok  | FLASHINFER | 140 s     |
+> **Corrected in step 1d.** The step 1b/1c speeds were measured while `step1_generate.py` captured the
+> engine's stdout/stderr to read its startup log. That capture added ~7 ms/token of CPU work to the
+> engine loop, which shows up once the GPU step is shorter than that (bf16 was unaffected). The tok/s
+> below are re-measured without it (2026-10-31, step 1d). The old numbers are in brackets and under
+> `superseded` in the JSON. Memory and kernel columns come from the original runs' startup log and are
+> unaffected. See `results/step1d_profile.md`.
 
-- The bf16 rerun matched step 1 exactly (463 tokens, 12.60 s), so the seed is deterministic and the
-  new log capture changed nothing.
-- **fp8 does not reach realtime (~82 tok/s).** Weights shrank 40% but time per token fell only 8%.
-  At ~300 GB/s, the time just to read the weights is ~22 ms (bf16) and ~13 ms (fp8). The remaining
-  time grew from ~5 ms to ~12 ms per token. Hypothesis, **not yet verified with a profiler**: vLLM's
-  fp8 path (dynamic activation quantization plus fp8 GEMM kernels) runs inefficiently at batch size 1
-  on Ada.
+| precision | tok/s [old] | ms/token | RTF (gen) | weights | KV cache            | attention  | load time |
+|-----------|-------------|----------|-----------|---------|---------------------|------------|-----------|
+| bf16      | 36.5 [36.7] | 27.4     | 2.25      | 6.2 GiB | 11.4 GiB, 107k tok  | FLASH_ATTN | 44 s      |
+| fp8       | 55.5 [40.1] | 18.0     | 1.48      | 3.73 GiB| 13.2 GiB, 124k tok  | FLASH_ATTN | 98 s      |
+| fp8 + fp8 KV | 55.5 [41.3] | 18.0  | 1.48      | 3.73 GiB| 12.8 GiB, 239k tok  | FLASHINFER | 140 s     |
+
+- The bf16 rerun matched step 1 exactly (463 tokens, 12.60 s), so the seed is deterministic. The
+  capture didn't affect bf16 (see the correction above).
+- **fp8 does not reach realtime (~82 tok/s), but it scales with bytes read as expected:** 1.5x faster
+  for 40% fewer weight bytes. The original "fp8 is inefficient at batch 1" hypothesis came from the
+  capture artefact and is withdrawn.
 - fp8 weights are 3.73 GiB, not ~3.1, because the tied 156,940 x 3072 embedding / lm_head
   (~0.9 GiB) stays bf16 and is still read every step.
 - The fp8 KV cache roughly doubles KV capacity (239k vs 124k tokens). That matters for concurrency,
@@ -108,7 +113,8 @@ vLLM 0.32 has no `VLLM_TEST_FORCE_FP8_MARLIN` any more. Its replacement is the e
 `linear_backend="marlin"` (CLI `--linear-backend marlin`), which `--precision fp8_marlin` uses. The
 default fp8 path on the L4 picks `CutlassFP8ScaledMMLinearKernel` (W8A8); with marlin it picks
 `MarlinFP8ScaledMMLinearKernel` (fp8 weights, bf16 activations).
-Result: **43.2 tok/s** (vs 40.1 for CUTLASS fp8). Weight-only helps a little; not enough.
+Result (corrected in step 1d): **61.7 tok/s** [43.2] vs 55.5 for CUTLASS fp8. Weight-only is ~10%
+faster at batch 1; not enough for realtime.
 
 ## W4A16 GPTQ (step 1c, 2026-10-31)
 
@@ -152,21 +158,75 @@ model loaded in bf16, 128 calibration sequences.
 ### Result
 vLLM loads it as `CompressedTensorsWNA16` and uses **`MarlinLinearKernel`**. No flags were needed.
 
-| precision  | tok/s | ms/token | RTF (gen) | weights  | KV capacity | linear kernel                  |
-|------------|-------|----------|-----------|----------|-------------|--------------------------------|
-| bf16       | 36.7  | 27.2     | 2.24      | 6.2 GiB  | 107k tok    | (unquantized)                  |
-| fp8        | 40.1  | 24.9     | 2.05      | 3.73 GiB | 124k tok    | CutlassFP8ScaledMMLinearKernel |
-| fp8_marlin | 43.2  | 23.1     | 1.90      | 3.58 GiB | 125k tok    | MarlinFP8ScaledMMLinearKernel  |
-| **w4a16**  | **56.1** | **17.8** | **1.47** | 2.31 GiB | 138k tok | MarlinLinearKernel             |
+Speeds corrected in step 1d (old, capture-inflated numbers in brackets; see the correction note in
+the step 1b section):
 
-- **w4a16 is still short of realtime (~82 tok/s needs ≤ 12.2 ms/token).**
-- Of the 2.31 GiB read per step, 0.9 GiB (39%) is now the bf16 tied embedding / lm_head.
-- At ~300 GB/s, reading the weights alone takes ~8.3 ms, so ~9.5 ms per token goes elsewhere.
-  Kernel efficiency at batch size 1, the 157k-wide lm_head and sampling, and per-step overhead are
-  all candidates. Not profiled yet.
+| precision  | tok/s [old]   | ms/token | RTF (gen) | weights  | KV capacity | linear kernel                  |
+|------------|---------------|----------|-----------|----------|-------------|--------------------------------|
+| bf16       | 36.5 [36.7]   | 27.4     | 2.25      | 6.2 GiB  | 107k tok    | (unquantized)                  |
+| fp8        | 55.5 [40.1]   | 18.0     | 1.48      | 3.73 GiB | 124k tok    | CutlassFP8ScaledMMLinearKernel |
+| fp8_marlin | 61.7 [43.2]   | 16.2     | 1.33      | 3.58 GiB | 125k tok    | MarlinFP8ScaledMMLinearKernel  |
+| **w4a16**  | **91.0** [56.1] | **11.0** | **0.91** | 2.31 GiB | 138k tok | MarlinLinearKernel             |
+
+- **w4a16 is faster than realtime** (≤ 12.2 ms/token needed). The step 1c report of 17.8 ms/token
+  and "~9.5 ms of unexplained overhead" came from the capture artefact.
 - Different weights, same seed: w4a16 produced a different token sequence (435 tokens, 5.29 s).
-  Levels are sane (no clipping); quality still needs a listen or a WER check.
-- Not tried yet, by decision: quantizing lm_head.
+  The user listened: the audio sounds clean.
+
+## Decode overhead and lm_head (step 1d, 2026-10-31)
+
+### Profile
+Full summary: `results/step1d_profile.md` (`scripts/profile_decode.py` + `scripts/analyze_trace.py`,
+vLLM's torch profiler).
+
+Per decode step on W4A16 the engine needs **10.8 ms with the GPU 99% busy**:
+- 6.0 ms: 4-bit Marlin matmuls (~250 GB/s);
+- 3.8 ms: bf16 lm_head gemv;
+- ~0.8 ms: attention and norms;
+- 0.13 ms: sampling.
+
+There is no idle-gap overhead to cut. The step 1c gap came from the measurement script (see
+correction above).
+
+### Overhead variants
+`results/step1d_overhead.json`, from `scripts/step1d_overhead.py <variant>`. One fresh process per
+row, same sentence and seed. Rows from `no_detok` on are stacked on `detokenize=False`.
+
+| variant | what changed | ms/token | tok/s | RTF | kept? |
+|---|---|---|---|---|---|
+| baseline | W4A16 as in step 1c, short warmup | 10.86 | 92.1 | 0.89 | — |
+| matched_warmup | warmup with identical SamplingParams | 10.85 | 92.2 | 0.89 | yes (methodology) |
+| no_detok | `detokenize=False` | 10.88 | 91.9 | 0.90 | yes: neutral at batch 1, we never use the text |
+| async_off | measure-only: `async_scheduling=False` | 12.90 | 77.5 | 1.06 | default (on) kept: worth ~2 ms/token |
+| graph_full_decode_only | `cudagraph_mode=FULL_DECODE_ONLY` | 10.97 | 91.1 | 0.90 | no: default FULL_AND_PIECEWISE already graphs decode fully |
+| flashinfer_sampler_off | measure-only: `VLLM_USE_FLASHINFER_SAMPLER=0` | 10.95 | 91.3 | 0.90 | default (on) kept; sampling is ~0.13 ms |
+| rep_penalty_1.0 | measure-only: repetition_penalty 1.0 | 11.10 | 90.1 | 0.91 | **no**: cost ~0 per token, and without it generation never stopped (ran to the 1200-token limit), confirming upstream's stability note |
+| **lmhead_w4a16** | **+ lm_head quantized W4A16** | **8.11** | **123.3** | **0.67** | **yes** |
+
+Best stack: vLLM 0.32 defaults (async scheduling, FULL_AND_PIECEWISE graphs, FlashInfer sampling) +
+`detokenize=False` + W4A16 with lm_head quantized. Audio: `results/samples/step1d_best.wav`.
+
+### lm_head quantization
+`scripts/quantize_w4a16.py --lm-head`: same GPTQ W4A16 group 128 and same 128 calibration sequences.
+Two details:
+- **Untie first.** lm_head shares its matrix with the embedding table. The script gives lm_head its
+  own copy and sets `tie_word_embeddings=False`, so the embedding lookup stays bf16. Took 576 s.
+  Output 2.48 GiB (bigger on disk than the 2.25 GiB w4a16 because the bf16 embedding is now stored
+  separately, but each decode step reads ~0.7 GiB less).
+- **Name lm_head in the targets.** llm-compressor's `targets=["Linear"]` matches HF's `nn.Linear`,
+  including lm_head. vLLM matches by layer name or by substring of its own class names, and its lm_head
+  is `ParallelLMHead`, so it loaded lm_head unquantized and failed on `lm_head.weight_packed`. Adding
+  `"lm_head"` to the config's targets fixes it (metadata only). The script now does it, and
+  `results/step1d_quantize_lmhead.json` records the patch.
+- vLLM then runs lm_head on `MarlinLinearKernel` too: weights 2.54 GiB in GPU memory, 136k-token KV.
+- Quality risk: lm_head directly scores every next token, so its rounding affects token choice most.
+  The levels in `step1d_best.wav` are sane; it needs a listen and, later, a WER check.
+
+### Measurement notes
+- KV capacity is now read from vLLM's cache config in the parent process. It differs by a few percent
+  from the "GPU KV cache size" startup log line used in step 1b/1c (e.g. fp8 128k vs 124k tokens).
+- Audio duration in `step1d_overhead.json` is computed from the frame count
+  (frames × 2048 / 24000), which equals the SNAC output length.
 
 ## Tokenization pipeline
 

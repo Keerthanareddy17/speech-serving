@@ -1,0 +1,36 @@
+{
+  "date": "2026-10-31T06:51:48+00:00",
+  "gpu": "NVIDIA L4",
+  "model": "canopylabs/orpheus-3b-0.1-ft",
+  "vllm_version": null,
+  "llmcompressor_version": "0.12.0.3",
+  "compressed_tensors_version": "0.17.1",
+  "torch_version": "2.12.0+cu130",
+  "transformers_version": "5.10.1",
+  "python_version": "3.13.16",
+  "config": {
+    "recipe": {
+      "modifier": "GPTQModifier",
+      "targets": "Linear",
+      "scheme": "W4A16",
+      "ignore": []
+    },
+    "calibration": "/content/drive/MyDrive/speech-infra/calib/orpheus_calib_128.jsonl",
+    "num_calibration_samples": 128,
+    "max_seq_length": 2048,
+    "dtype": "bfloat16"
+  },
+  "quantization_s": 576.3,
+  "output_dir": "/content/drive/MyDrive/speech-infra/models/orpheus-3b-w4a16-lmhead",
+  "output_safetensors_gib": 2.48,
+  "saved_quant_format": "pack-quantized",
+  "saved_weights_config": {
+    "num_bits": 4,
+    "type": "int",
+    "symmetric": true,
+    "group_size": 128,
+    "strategy": "group"
+  },
+  "saved_ignore": [],
+  "post_save_patch": "added 'lm_head' to quantization_config.config_groups[*].targets (now ['Linear', 'lm_head']) so vLLM's name-based matching finds lm_head; weights unchanged. Done in quantize_w4a16.py from now on."
+}
