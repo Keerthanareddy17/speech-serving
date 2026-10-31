@@ -24,6 +24,7 @@ import numpy as np
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 from speechserve import config as C  # noqa: E402
+from speechserve.metrics import playback_metrics  # noqa: E402
 
 OUT_JSON = ROOT / "results/step2_single_stream.json"
 CONFIGS = ["w4a16_lmhead", "w4a16"]
@@ -38,21 +39,6 @@ RUNS = 10
 
 
 # ---- per-run metrics -----------------------------------------------------------------------------------
-def playback_metrics(arrivals, durations):
-    """Playback starts when chunk 0 arrives. A gap = a chunk arriving after the audio before it ended.
-    buffer_needed = the start delay that would make every chunk arrive in time."""
-    a0, played, gaps, gap_s, need = arrivals[0], 0.0, 0, 0.0, 0.0
-    play_end = a0
-    for a, d in zip(arrivals, durations):
-        need = max(need, a - (a0 + played))   # lateness vs. an uninterrupted schedule
-        if a > play_end + 1e-9 and played > 0:
-            gaps += 1
-            gap_s += a - play_end
-        play_end = max(play_end, a) + d
-        played += d
-    return gaps, gap_s, need
-
-
 async def timed_stream(engine, decoder, text, chunk_cfg):
     from speechserve.codec import FrameAssembler, stream_audio
 

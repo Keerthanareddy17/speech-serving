@@ -29,7 +29,9 @@ import asyncio
 import time
 from collections.abc import AsyncIterator, Iterable
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import aclosing
 from dataclasses import dataclass
+from typing import Protocol
 
 import numpy as np
 
@@ -120,9 +122,22 @@ class AudioChunk:
     window: Window
     decode_ms: float       # SNAC call incl. copy back to CPU
     ready_s: float         # time.perf_counter() when the chunk was ready
+    wait_ms: float = 0.0   # time queued behind other decode calls before this one started
+
+
+class ChunkDecoder(Protocol):
+    """What `stream_audio` (and the server) need from a decoder. The baseline `SNACDecoder` decodes
+    each stream's windows one call at a time; a batched decoder (step 6) can implement the same method
+    by grouping windows from many streams into one SNAC call."""
+
+    async def decode_window(self, frames: list[list[int]], win: Window) -> AudioChunk: ...
+
+    def stats(self) -> dict: ...
 
 
 class SNACDecoder:
+    """Baseline decoder: one SNAC call per window, all streams' calls queued on one worker thread."""
+
     def __init__(self, model: str = C.SNAC_MODEL, device: str = "cuda"):
         import torch
         from snac import SNAC
@@ -132,6 +147,13 @@ class SNACDecoder:
         self.model = SNAC.from_pretrained(model).eval().to(device)
         # One worker thread: decode calls from all streams are serialised on the GPU, off the event loop.
         self._pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix="snac")
+        self.calls = 0
+        self.busy_s = 0.0          # total time the worker spent decoding
+        self.pending = 0           # calls submitted but not finished
+
+    def stats(self) -> dict:
+        return {"decoder": "per_stream", "snac_calls_total": self.calls,
+                "snac_busy_s_total": round(self.busy_s, 3), "snac_pending": self.pending}
 
     def set_noise(self, enabled: bool) -> None:
         """snac_24khz has `noise: true`: decoder NoiseBlocks add random noise, so two decodes of the
@@ -158,21 +180,37 @@ class SNACDecoder:
         return await asyncio.get_running_loop().run_in_executor(self._pool, self.decode, frames)
 
     async def decode_window(self, frames: list[list[int]], win: Window) -> AudioChunk:
-        audio, ms = await self.decode_async(frames[win.decode_start:win.decode_end])
-        return AudioChunk(audio[win.keep_samples], win, ms, time.perf_counter())
+        submitted = time.perf_counter()
+        started = []
+
+        def job():
+            started.append(time.perf_counter())
+            return self.decode(frames[win.decode_start:win.decode_end])
+
+        self.pending += 1
+        try:
+            audio, ms = await asyncio.get_running_loop().run_in_executor(self._pool, job)
+        finally:
+            self.pending -= 1
+        self.calls += 1
+        self.busy_s += ms / 1000
+        return AudioChunk(audio[win.keep_samples], win, ms, time.perf_counter(),
+                          wait_ms=(started[0] - submitted) * 1000)
 
 
-async def stream_audio(token_stream: AsyncIterator[list[int]], decoder: SNACDecoder,
+async def stream_audio(token_stream: AsyncIterator[list[int]], decoder: ChunkDecoder,
                        chunk_cfg: C.ChunkConfig | None = None,
                        assembler: FrameAssembler | None = None) -> AsyncIterator[AudioChunk]:
     """Token-id stream -> PCM chunks, each yielded as soon as its window is decodable.
 
     Pass your own `assembler` to read the token/frame counts (and frames) after the stream ends.
+    Closing this generator early also closes `token_stream`, so the engine aborts the request.
     """
     asm = assembler if assembler is not None else FrameAssembler()
     planner = ChunkPlanner(chunk_cfg)
-    async for ids in token_stream:
-        for win in planner.plan(asm.push(ids)):
-            yield await decoder.decode_window(asm.frames, win)
+    async with aclosing(token_stream):
+        async for ids in token_stream:
+            for win in planner.plan(asm.push(ids)):
+                yield await decoder.decode_window(asm.frames, win)
     for win in planner.plan(len(asm.frames), final=True):
         yield await decoder.decode_window(asm.frames, win)

@@ -322,6 +322,66 @@ Step 2 produced 421 / 498 tokens for the step 1 sentence, while step 1d produced
   is needed for reproducible tokens as well as timings.
 - So step 2 token counts are comparable within step 2, not with step 1.
 
+## Websocket server (step 3, 2026-10-31)
+
+### Design
+- `src/speechserve/server.py` (FastAPI, one uvicorn worker). Startup loads **one** `TTSEngine`
+  (default `w4a16_lmhead`) and **one** SNAC decoder, shared by every connection. vLLM batches the
+  concurrent requests.
+- `/ws/tts`: the client sends `{text, voice}`. The server sends binary PCM16 24 kHz chunks as they
+  are decoded, then `{"type": "done", ...}` with that request's timings: TTFA, tokens, audio s, RTF,
+  `queue_ms` (vLLM scheduler wait, from vLLM's per-request `queued_ts`/`scheduled_ts`), SNAC ms and
+  SNAC wait ms per chunk. A connection can send several requests in a row. A client that disconnects
+  mid-stream has its vLLM request aborted, and the log shows it as `disconnected`, not as an error.
+- Decoding goes through the `ChunkDecoder` interface (`codec.py`). The baseline `SNACDecoder` runs one
+  SNAC call per window, with every stream's calls queued on **one** worker thread, off the event loop.
+  Step 6 can swap in a batched decoder without touching the server.
+- `/health`; `/metrics` returns active streams, total requests, errors, recent TTFA p50/p95, GPU
+  memory and utilisation (NVML, device-wide), and the SNAC worker's call count, busy time and pending
+  calls.
+- `src/speechserve/metrics.py`: one JSON line per request in `/content/logs/server.jsonl`, outside
+  the repo. It records text length, not the text.
+- `scripts/run_server.py` (run in tmux window `server`); `scripts/ws_client.py` (`-n` for concurrent
+  clients).
+
+### Warmup: first batch of a new size stalled the engine ~3 s
+The first time 3 requests ran together, TTFA was 3.3 s. The same 3 requests again took 0.26–0.29 s.
+The first batch of 4 again took 3.0 s. New batch sizes with staggered starts, and new combined prompt
+lengths, did not reproduce it.
+
+Cause: vLLM 0.32's Triton top-p sampler (`v1/sample/ops/topk_topp_triton.py`) splits each row over
+`S` blocks. `S` is a compile-time constant picked from the batch size and the SM count
+(`_topp_split_count`; on the L4's 58 SMs: batch 1 → 16, 2–3 → 8, 4–7 → 4, 8–14 → 2, 15–29 → 1). Above
+batch 64 a different kernel is used.
+- The first batch with a new `S` compiles 3 kernels (~3 s), and the whole engine stalls while it
+  does, so every active stream stalls too.
+- vLLM's JIT monitor only warns once per kernel name, so the later compiles were silent.
+- vLLM's own JIT warmup runs but compiles nothing here ("finished in 0.00s").
+- A first batch of 32 also compiled something, although its `S` equals batch 16's.
+
+Fix: after the normal warmup stream, server startup runs one short (8-token) simultaneous batch for
+every size 2–64, plus 80 and 128.
+- Kernels are cached on disk (`~/.triton`), so after the first-ever start this takes ~10 s.
+- With it, 3 concurrent paragraphs get TTFA 0.26–0.29 s on a fresh server.
+- Anyone measuring latency on a fresh vLLM process should warm every batch size they will hit.
+
+### Sanity checks (fresh server, warmup fix in)
+| test | client TTFA | server TTFA | RTF | gaps | errors |
+|---|---|---|---|---|---|
+| sentence ×1 | 248 ms | 247 ms | 0.719 | 0 | 0 |
+| paragraph ×1 | 247 ms | 247 ms | 0.729 | 0 | 0 |
+| paragraph ×3 at once | 260 / 275 / 291 ms | 259 / 274 / 288 ms | 0.885 | 0 | 0 |
+| sentence ×3 at once | 256 / 275 / 292 ms | 256 / 273 / 290 ms | 0.83 | 0 | 0 |
+
+- Client and server TTFA agree within 3 ms, so websocket and localhost overhead is negligible.
+- With 3 streams the TTFAs are staggered by ~15 ms: their first SNAC calls queue behind each other
+  (per-chunk SNAC wait of 0 / 5 / 20 ms).
+- `results/samples/step3_ws.wav` (the paragraph, received over the socket) has the same 1345 tokens
+  as step 2's run and the same length. It correlates 0.998 with `step2_w4a16_lmhead_stream.wav` (the
+  difference is SNAC's noise), with no clipping.
+- A client disconnect mid-stream: logged as `disconnected`, errors 0, GPU idle within a second
+  (request aborted).
+
 ## Tokenization pipeline
 
 ## Measurement methodology

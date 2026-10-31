@@ -7,6 +7,8 @@ tokenization pipeline, measured on a single NVIDIA L4.
 
 - **Never write tokens or secrets into any file.** HF auth comes from `~/.cache/huggingface`;
   GitHub auth comes from the existing git remote.
+- **Never run `git remote -v` or print the remote URL** (it contains a token). If needed, use
+  `git remote get-url origin | sed 's/\/\/.*@/\/\/***@/'`.
 - **Commit and push after every working step**, with a clear message.
 - **Big files (datasets, shards) go to `/content/drive/MyDrive/speech-infra`, never into git.**
   Only small results (<5 MB) go in `results/`.

@@ -46,8 +46,12 @@ class TTSEngine:
         return SamplingParams(**s, detokenize=False, output_kind=RequestOutputKind.DELTA)
 
     async def stream(self, text: str, voice: str = C.DEFAULT_VOICE, request_id: str | None = None,
-                     **sampling_overrides) -> AsyncIterator[list[int]]:
+                     info: dict | None = None, **sampling_overrides) -> AsyncIterator[list[int]]:
         """Yield lists of newly generated token ids (raw vLLM ids, incl. the final stop token).
+
+        If `info` is given it is filled with vLLM's per-request timings: queue_ms (waiting in the
+        scheduler before first being run), prefill_ms (scheduled -> first token), preemptions,
+        finish_reason.
 
         If the consumer stops iterating early (e.g. a client disconnects), the request is aborted so it
         stops using GPU time.
@@ -58,10 +62,19 @@ class TTSEngine:
         try:
             async for out in self.llm.generate(prompt, self.sampling_params(**sampling_overrides), request_id):
                 comp = out.outputs[0]
+                if info is not None and out.metrics is not None:
+                    m = out.metrics
+                    if m.scheduled_ts:
+                        info["queue_ms"] = (m.scheduled_ts - m.queued_ts) * 1000
+                    if m.first_token_ts:
+                        info["prefill_ms"] = (m.first_token_ts - m.scheduled_ts) * 1000
+                    info["preemptions"] = m.num_preemptions
                 if comp.token_ids:
                     yield list(comp.token_ids)
                 if out.finished:
                     finished = True
+                    if info is not None:
+                        info["finish_reason"] = comp.finish_reason
         finally:
             if not finished:
                 await self.llm.abort(request_id)
