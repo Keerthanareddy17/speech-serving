@@ -39,6 +39,7 @@ def main():
     ap.add_argument("--score-only", action="store_true")
     ap.add_argument("--decoder", default="batched", choices=["batched", "per_stream"],
                     help="SNAC decoder for generation (step 5 used per_stream; the server default is batched since 6b)")
+    ap.add_argument("--first-wait-frames", type=int, default=4, help="frames the first chunk waits for (step 6c)")
     ap.add_argument("--out", default=DEFAULT_OUT, help="results prefix (writes <out>.json and <out>_clips.csv)")
     ap.add_argument("--baseline-csv", help="clips CSV of an earlier run: adds a paired bootstrap vs the same preset")
     ap.add_argument("--worker-generate", help=argparse.SUPPRESS)
@@ -49,7 +50,8 @@ def main():
 
     OUT_JSON, OUT_CSV = ROOT / f"{args.out}.json", ROOT / f"{args.out}_clips.csv"
     if args.worker_generate:                                  # child process: one engine
-        Q.run_generate(args.worker_generate, run_dir / args.worker_generate, decoder_kind=args.decoder)
+        Q.run_generate(args.worker_generate, run_dir / args.worker_generate, decoder_kind=args.decoder,
+                       first_wait_frames=args.first_wait_frames)
         return
     if args.worker_transcribe:                                # child process: Whisper only
         Q.transcribe(dirs)
@@ -58,7 +60,7 @@ def main():
     if not (args.skip_generate or args.score_only):
         for p in args.presets:
             subprocess.run([sys.executable, __file__, "--run", args.run, "--decoder", args.decoder,
-                            "--worker-generate", p], check=True)
+                            "--first-wait-frames", str(args.first_wait_frames), "--worker-generate", p], check=True)
     if not args.score_only:
         subprocess.run([sys.executable, __file__, "--run", args.run, "--presets", *args.presets,
                         "--worker-transcribe"], check=True)
@@ -130,7 +132,7 @@ def main():
                    "metrics": "jiwer wer/cer per clip on normalised text; corpus_wer = total errors / total words",
                    "bootstrap": "paired over sentences (mean of seeds), 10000 resamples, 95% percentile CI",
                    "generation": meta},
-        "decoder": args.decoder,
+        "decoder": args.decoder, "first_wait_frames": args.first_wait_frames,
         "per_config": per,
         "comparisons": comparisons,
     }

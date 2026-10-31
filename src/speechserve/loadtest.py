@@ -237,7 +237,9 @@ def summarize_level(level: Level, samples: list, cpu_s: float) -> dict:
 ROW_FIELDS = ["streams", "stream", "seq", "kind", "phase", "status", "error", "client_ttfa_ms", "client_rtf",
               "audio_s", "wall_s", "gap_count", "gap_total_ms", "buffer_needed_ms", "chunks",
               "server_ttfa_ms", "server_rtf", "tokens", "queue_ms", "prefill_ms", "snac_ms_mean",
-              "snac_wait_ms_mean", "t_start_rel_s"]
+              "snac_wait_ms_mean", "t_start_rel_s", "ttfa_first_output_ms", "ttfa_first_window_ms",
+              "ttfa_first_window_audio_tokens", "ttfa_first_chunk_ready_ms", "first_chunk_decode_ms",
+              "first_chunk_wait_ms"]
 
 
 def flatten_row(level: Level, r: dict) -> dict:
@@ -246,6 +248,8 @@ def flatten_row(level: Level, r: dict) -> dict:
            "server_ttfa_ms": s.get("ttfa_ms"), "server_rtf": s.get("rtf"), "tokens": s.get("tokens"),
            "queue_ms": s.get("queue_ms"), "prefill_ms": s.get("prefill_ms"),
            "snac_ms_mean": s.get("snac_ms_mean"), "snac_wait_ms_mean": s.get("snac_wait_ms_mean"),
+           **{k: s.get(k) for k in ("ttfa_first_output_ms", "ttfa_first_window_ms", "ttfa_first_window_audio_tokens",
+                                    "ttfa_first_chunk_ready_ms", "first_chunk_decode_ms", "first_chunk_wait_ms")},
            "t_start_rel_s": round(r["t_start"] - level.t0, 3) if r.get("t_start") else None}
     return {k: (round(v, 3) if isinstance(v, float) else v) for k, v in out.items()}
 

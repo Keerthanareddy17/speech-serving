@@ -773,6 +773,108 @@ clipping.
   - **decode SNAC on the CPU** (12 cores, ~94 windows/s needed at N=8): removes the GPU contention
     entirely; worth a micro-benchmark next.
 
+## First chunk and CPU SNAC (step 6c, 2026-10-31)
+
+### TTFA breakdown at N=1 (6b config, 10 requests, p50 / p95)
+The server now returns `ttfa_first_output_ms`, `ttfa_first_window_ms`, `ttfa_first_chunk_ready_ms` and
+`first_chunk_decode/wait_ms` per request; the load test copies them into its CSV.
+
+| part | p50 / p95 |
+|---|---|
+| request → first vLLM output in the server (queue 0, prefill 14.2 ms, IPC) | 16.9 / 18.0 ms |
+| **first output → 28th audio token (27 tokens × 7.8 ms)** | **211.8 / 214.0 ms** |
+| first SNAC call | 16.0 / 17.7 ms |
+| server send + websocket | 0.9 / 1.0 ms |
+| client TTFA | 245.5 / 249.4 ms |
+
+86% of TTFA is waiting for the tokens the first window needs. That is the only part a smaller first
+chunk can shrink.
+
+### Smaller first chunk (`--first-wait-frames`, server default now 2)
+- **W = 4 (upstream):** decode frames 0–3, emit frame 1 (frame 0 is never played).
+- **W < 4:** decode frames 0..W−1 and emit **frame 0** with W−1 right frames.
+  - W=3 gives frame 0 the standard 2 right frames.
+  - W ≤ 2 would leave the client only 85 ms of audio before the next standard window, so the next
+    frames may also go out with fewer right frames (≥ W−1). This uses the 6b buffer-aware rule: wait for
+    2 right frames only if the client's buffer covers it.
+- `ChunkConfig.first_wait_frames` defaults to 4 (the upstream reference used by tests and offline
+  tools); the server defaults to 2.
+
+Audio check (`results/step6b_audio_check.json`, variants `first_wait*` and `fw*_<clip>`): noise off,
+against the whole-sequence decode. The paragraph starts in near-silence, so 3 clips that start speaking
+immediately were added ("Yes, absolutely.", "See you tomorrow at noon.", "Peter Piper…").
+
+| W | first 300 ms SNR (yes / see you / Peter Piper) | right frames, first 6 frames | first-boundary jump | whole-clip SNR |
+|---|---|---|---|---|
+| 4 | 27.4 / 30.1 / 29.1 dB | 2 2 2 2 2 2 | ≈ whole | 23.5 / 28.5 / 25.6 |
+| 3 | 29.0 / 34.7 / 30.0 | 2 2 2 2 2 2 | ≈ whole | same |
+| 2 | 26.8 / 31.5 / 27.8 | 1 1 1 1 2 1 | ≈ whole | 23.5 / 28.3 / 25.6 |
+| 1 | 8.7 / 11.3 / 8.3 | 0 0 0 0 0 0 | 3–15× whole | 13.8 / 14.0 / 25.5 |
+
+W=1 was rejected on audio and not screened.
+
+Server screens (`results/screen/fw*`):
+
+| W | TTFA N=1 (10 reqs) p50 / p95 | N=4 RTF p95 / TTFA p50 | N=6 RTF p95 / gaps / TTFA p50 |
+|---|---|---|---|
+| 4 | 246 / 249 ms | 0.876 / 306 ms (6b ref) | 0.960 / 0% / 318 ms (6b ref) |
+| 3 | 190 / 194 ms | 0.911 / 247 ms | 0.966 / 0% / 263 ms |
+| **2** | **135 / 137 ms** | 0.908 / 189 ms | **0.998** / 0% / 196 ms |
+
+**Adopted W=2**: the smallest size with clean audio and capacity 6. N=6 sits at the edge; the 60 s
+final sweep confirmed it (0.996).
+- Listening examples: `results/samples/step6c/fw{4,3,2}_{yes,see_you,peter_piper}.wav`. The tokens
+  are identical across W, so they differ only in how the start was chunked.
+- `results/samples/step6c_first_chunk.wav`: the paragraph at W=2, 85 ms longer than 6b's (frame 0),
+  otherwise correlation 0.998.
+
+**Quality** (`results/step6c_quality.json`, the step 5 harness unchanged, W=2):
+- WER 3.1% vs 2.87%; difference **+0.24 points, 95% CI [−0.53, +1.01]**; format-insensitive +0.10.
+  Within noise (seed noise 2.3 points).
+- Same tokens on all 60 clips; only the audio differs (frame 0 played, SNAC noise, early context).
+
+### Speech starts ~0.6 s into the audio (finding, nothing built)
+In the 60 step 5 w4a16_lmhead clips, audible speech (first 20 ms window above 10% of the clip's loud
+level) starts p10 389 / **p50 634** / p90 923 ms into the played audio. Orpheus generates a lead-in of
+near-silence.
+- Time to first *speech* at N=1 is therefore ~TTFA + 0.6 s: ~880 ms before 6c, ~770 ms now (frame 0
+  adds 85 ms of lead-in back).
+- Sending generated frames only once speech starts could bring first speech forward by ~0.3 s at N=1.
+  Candidate for later.
+
+### Prefix caching (record only)
+- On by default in vLLM 0.32 (`enable_prefix_caching=True`, block size 16).
+- Our prompts share only a 5-token voice prefix (`[128259, 128000, "t", "ara", ":"]`), less than one
+  block, so different texts get no reuse. Identical repeated prompts do (e.g. the load test's two
+  texts); prefill is ~14 ms, so the effect is small.
+
+### SNAC on the CPU (time box 25 min, used ~5): rejected
+`results/step6c_snac_cpu_bench.json`, fp32, 12 cores.
+- Best total: **47.6 windows/s** (12 processes × 1 thread, batch 8, 2.0 s per call) = ~4 streams.
+- Best at low delay: 38.9 windows/s (12 threads, batch 4, 103 ms per call).
+- N=8 needs ~94/s and N=12 ~141/s. Cost per window rises with batch size on the CPU.
+- The server flag was not built (stop rule).
+
+### Final 6c sweep (`results/step6c_final_sweep.*`, 60 s per level)
+| N | TTFA p50 / p95, 6b → 6c | RTF p95, 6b → 6c | gaps, 6b → 6c | throughput, 6b → 6c | vLLM ms/token, 6b → 6c | SNAC busy, 6b → 6c |
+|---|---|---|---|---|---|---|
+| 1 | 247 / 249 → **137 / 138 ms** | 0.729 → 0.729 | 0 → 0% | 1.38 → 1.38 | 8.74 → 8.78 | 0.24 → 0.28 |
+| 4 | 307 / 318 → 184 / 198 | 0.903 → 0.927 | 0 → 0% | 4.57 → 4.51 | 10.5 → 10.7 | 0.45 → 0.57 |
+| 5 | 311 / 340 → 194 / 207 | 0.953 → 0.979 | 0 → 0% | 5.45 → 5.37 | 11.0 → 11.3 | 0.47 → 0.59 |
+| **6** | 325 / 340 → **187 / 214** | 0.986 → **0.996** | 0 → **0%** | 6.31 → 6.18 | 11.4 → 11.7 | 0.45 → 0.61 |
+| 7 | 324 / 366 → 208 / 220 | 1.036 → 1.038 | 44 → 56% | 7.16 → 7.07 | 11.8 → 12.0 | 0.39 → 0.53 |
+| 8 | 342 / 392 → 206 / 236 | 1.108 → 1.066 | 78 → 67% | 7.53 → 7.92 | 12.8 → 12.2 | 0.60 → 0.51 |
+| 10 | 383 / 409 → 222 / 244 | 1.18 → 1.17 | 96 → 98% | 8.85 → 8.89 | 13.6 → 13.6 | 0.45 → 0.52 |
+| 12 | 419 / 466 → 218 / 245 | 1.28 → 1.21 | 96 → 89% | 9.94 → 10.3 | 14.6 → 14.1 | 0.47 → 0.46 |
+| 16 | 438 / 599 → 256 / 270 | 1.49 → 1.48 | 100 → 100% | 11.3 → 11.4 | 17.0 → 17.1 | 0.44 → 0.59 |
+
+**Max streams: 6** (unchanged), errors 0 at every level. TTFA fell by ~110–200 ms at every level.
+- **The price is a thinner margin at N=4–6** (RTF p95 +0.01–0.03, SNAC busy +0.1). During each
+  stream's start-up ramp, its 3-frame windows can't share a SNAC call with the others' 4-frame windows,
+  so there are more calls and vLLM's per-token time rises slightly.
+- **Limit unchanged** (see 6b): vLLM's per-token time, inflated by sharing the GPU with SNAC in another
+  process.
+
 ## Tokenization pipeline
 
 ## Measurement methodology

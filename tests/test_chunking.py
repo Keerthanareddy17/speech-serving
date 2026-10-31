@@ -120,3 +120,48 @@ def test_growing_chunks_stitch_every_frame_once(cap):
     for w in p.plan(n_total, final=True):
         out.append(np.repeat(np.arange(w.decode_start, w.decode_end), C.SAMPLES_PER_FRAME)[w.keep_samples])
     assert np.array_equal(np.concatenate(out), np.repeat(np.arange(1, n_total), C.SAMPLES_PER_FRAME))
+
+
+# ---- step 6c: early first chunk (first_wait_frames < 4) -------------------------------------------------
+def test_first_wait_4_is_upstream():
+    p = ChunkPlanner(C.ChunkConfig(first_wait_frames=4))
+    assert p.plan(3) == [] and p.plan(4) == [Window(0, 4, 1, 2)]
+
+
+def test_first_wait_3_emits_frame0_with_two_right_frames():
+    p = ChunkPlanner(C.ChunkConfig(first_wait_frames=3))
+    assert p.plan(2) == []
+    assert p.plan(3) == [Window(0, 3, 0, 1)]                 # frame 0, right context 2 (frames 1-2)
+    assert p.plan(4) == [Window(0, 4, 1, 2)]                 # then the standard windows
+    assert p.plan(5) == [Window(1, 5, 2, 3)]
+
+
+def test_first_wait_2_ramps_right_context_when_buffer_is_short():
+    p = ChunkPlanner(C.ChunkConfig(first_wait_frames=2))
+    assert p.plan(2) == [Window(0, 2, 0, 1)]                 # frame 0 with 1 right frame
+    # 3 frames: frame 1 could go with 1 right frame; buffer too short to wait for frame 3 -> send now
+    assert p.plan(3, buffer_s=0.03, frame_s=0.06, decode_s=0.01) == [Window(0, 3, 1, 2)]
+    # plenty of buffer -> wait for the standard 2 right frames
+    assert p.plan(4, buffer_s=1.0, frame_s=0.06, decode_s=0.01) == []
+    assert p.plan(5, buffer_s=1.0, frame_s=0.06, decode_s=0.01) == [Window(1, 5, 2, 3)]
+
+
+def test_first_wait_2_without_hints_waits_for_standard_context():
+    p = ChunkPlanner(C.ChunkConfig(first_wait_frames=2))
+    p.plan(2)
+    assert p.plan(3) == [] and p.plan(4) == [Window(0, 4, 1, 2)]
+
+
+@pytest.mark.parametrize("w", [1, 2, 3])
+def test_early_first_chunk_stitches_every_frame_once(w):
+    rng = np.random.default_rng(w)
+    cfg = C.ChunkConfig(first_wait_frames=w)
+    p, n_total, out = ChunkPlanner(cfg), 40, []
+    for n in range(1, n_total + 1):
+        for win in p.plan(n, buffer_s=float(rng.uniform(0, 0.3)), frame_s=0.06, decode_s=0.01):
+            assert win.emit_end - win.emit_start == 1
+            assert win.decode_end - win.emit_end >= w - 1        # never less right context than the first chunk
+            out.append(np.repeat(np.arange(win.decode_start, win.decode_end), C.SAMPLES_PER_FRAME)[win.keep_samples])
+    for win in p.plan(n_total, final=True):
+        out.append(np.repeat(np.arange(win.decode_start, win.decode_end), C.SAMPLES_PER_FRAME)[win.keep_samples])
+    assert np.array_equal(np.concatenate(out), np.repeat(np.arange(0, n_total), C.SAMPLES_PER_FRAME))

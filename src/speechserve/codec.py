@@ -106,7 +106,12 @@ class ChunkPlanner:
     def __init__(self, cfg: C.ChunkConfig | None = None):
         self.cfg = cfg or C.ChunkConfig()
         assert self.cfg.first_chunk_frames >= 1 and self.cfg.chunk_frames >= 1
-        self.next_emit = 1 if self.cfg.skip_first_frame else 0
+        std = self.cfg.left_context + 1 + self.cfg.right_context
+        # Early first chunk (step 6c): wait for W < 4 frames and emit frame 0 with W-1 right frames.
+        self.early = 1 <= self.cfg.first_wait_frames < std
+        if self.early:
+            assert self.cfg.first_chunk_frames == 1 and self.cfg.chunk_frames == 1, "early first chunk: 1-frame chunks only"
+        self.next_emit = 0 if self.early else (1 if self.cfg.skip_first_frame else 0)
         self.n_chunks = 0
 
     def _window(self, a: int, b: int, end: int) -> Window:
@@ -123,6 +128,14 @@ class ChunkPlanner:
         cfg, out, right = self.cfg, [], self.cfg.right_context
         while self.next_emit < n_frames:
             a = self.next_emit
+            if self.early:
+                w = self._early_window(a, n_frames, final, buffer_s, frame_s, decode_s)
+                if w is None:
+                    break
+                out.append(w)
+                self.next_emit = w.emit_end
+                self.n_chunks += 1
+                continue
             if self.n_chunks == 0:
                 b = a + cfg.first_chunk_frames
             else:
@@ -152,6 +165,27 @@ class ChunkPlanner:
             self.next_emit = b
             self.n_chunks += 1
         return out
+
+
+    def _early_window(self, a, n, final, buffer_s, frame_s, decode_s):
+        """Early-first-chunk mode: one frame per chunk, right context between W-1 and the standard 2."""
+        cfg, right = self.cfg, self.cfg.right_context
+        min_right = cfg.first_wait_frames - 1
+        if self.n_chunks == 0:                         # first chunk: frame 0 as soon as W frames exist
+            return Window(0, cfg.first_wait_frames, 0, 1) if n >= cfg.first_wait_frames else (
+                Window(0, n, 0, 1) if final else None)
+        if a + 1 + right <= n:                         # standard context available
+            return Window(max(0, a - cfg.left_context), a + 1 + right, a, a + 1)
+        if final:
+            return Window(max(0, a - cfg.left_context), n, a, a + 1)
+        if a + 1 + min_right > n:                      # not even the minimum context yet
+            return None
+        if buffer_s is not None and frame_s is not None:
+            wait_s = (a + 1 + right - n) * frame_s
+            if wait_s + decode_s + cfg.chunk_safety_ms / 1000 < buffer_s:
+                return None                            # safe to wait for full right context
+            return Window(max(0, a - cfg.left_context), n, a, a + 1)   # send now with what exists
+        return None                                    # no timing info: wait for full context
 
 
 # ---- 3. GPU decode ------------------------------------------------------------------------------------
@@ -382,7 +416,8 @@ class BatchedChunkDecoder:
 
 async def stream_audio(token_stream: AsyncIterator[list[int]], decoder: ChunkDecoder,
                        chunk_cfg: C.ChunkConfig | None = None,
-                       assembler: FrameAssembler | None = None) -> AsyncIterator[AudioChunk]:
+                       assembler: FrameAssembler | None = None,
+                       timing: dict | None = None) -> AsyncIterator[AudioChunk]:
     """Token-id stream -> PCM chunks, each yielded as soon as its window is decodable.
 
     Pass your own `assembler` to read the token/frame counts (and frames) after the stream ends.
@@ -400,8 +435,10 @@ async def stream_audio(token_stream: AsyncIterator[list[int]], decoder: ChunkDec
     sent_s = 0.0
     last_decode_s = 0.0
 
+    adaptive = cfg.chunk_frames > 1 or planner.early
+
     def hints(n: int) -> dict:
-        if cfg.chunk_frames == 1 or t_first is None or n <= n_at_first:
+        if not adaptive or t_first is None or n <= n_at_first:
             return {}
         now = time.perf_counter()
         return {"buffer_s": sent_s - (now - t_first), "frame_s": (now - t_first) / (n - n_at_first),
@@ -409,9 +446,16 @@ async def stream_audio(token_stream: AsyncIterator[list[int]], decoder: ChunkDec
 
     async def emit(win):
         nonlocal t_first, n_at_first, sent_s, last_decode_s
+        if t_first is None and timing is not None:     # TTFA breakdown (step 6c)
+            timing["first_window_planned_s"] = time.perf_counter()
+            timing["first_window_audio_tokens"] = asm.n_audio_tokens
         chunk = await decoder.decode_window(asm.frames, win)
         if t_first is None:
             t_first, n_at_first = chunk.ready_s, len(asm.frames)
+            if timing is not None:
+                timing["first_chunk_ready_s"] = chunk.ready_s
+                timing["first_chunk_decode_ms"] = chunk.decode_ms
+                timing["first_chunk_wait_ms"] = chunk.wait_ms
         sent_s += len(chunk.pcm) / C.SAMPLE_RATE
         last_decode_s = (chunk.decode_ms + chunk.wait_ms) / 1000
         return chunk

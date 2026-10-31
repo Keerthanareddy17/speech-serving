@@ -1,0 +1,3 @@
+streams,measured_requests,measured_sentence,measured_paragraph,errors,ttfa_ms_p50,ttfa_ms_p95,rtf_p50,rtf_p95,pct_requests_with_gaps,gap_count_p95,buffer_needed_ms_p95,buffer_needed_ms_max,throughput_audio_s_per_s,throughput_window_s,server_queue_ms_p95,snac_ms_per_chunk_p50,snac_wait_ms_per_chunk_p50,snac_busy_fraction,snac_batch_mean,vllm_tokens_per_s,vllm_ms_per_token,vllm_requests_running_mean,gpu_util_pct_mean,gpu_mem_used_gib_peak,client_cpu_pct_of_one_core,level_wall_s
+4,10,4,6,0,189.11,198.069,0.883,0.908,0.0,0.0,0.0,0.0,4.559,22.5,0.0,15.765,4.87,0.498,1.68,376.0,10.57,3.8,100.0,21.26,1.0,38.2
+6,15,6,9,0,196.064,231.674,0.966,0.998,0.0,0.0,0.0,0.0,6.303,25.3,0.0,16.1,4.09,0.516,2.28,518.5,11.49,5.9,100.0,21.26,1.3,43.8

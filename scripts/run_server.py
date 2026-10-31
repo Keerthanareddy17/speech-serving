@@ -35,6 +35,8 @@ def main():
                          "buffer allows, 1 = upstream")
     ap.add_argument("--chunk-safety-ms", type=float, default=50.0, help="margin when deciding to wait for a bigger chunk")
     ap.add_argument("--snac-dtype", default="float32", choices=["float32", "float16", "bfloat16"])
+    ap.add_argument("--first-wait-frames", type=int, default=2,
+                    help="frames the first chunk waits for (default 2, step 6c); 4 = upstream window")
     ap.add_argument("--snac-graphs", action="store_true",
                     help="batched decoder: record one SNAC CUDA graph per batch size at startup (step 6b)")
     args = ap.parse_args()
@@ -48,6 +50,7 @@ def main():
     os.environ["SPEECHSERVE_CHUNK_SAFETY_MS"] = str(args.chunk_safety_ms)
     os.environ["SPEECHSERVE_SNAC_DTYPE"] = args.snac_dtype
     os.environ["SPEECHSERVE_SNAC_GRAPHS"] = "1" if args.snac_graphs else "0"
+    os.environ["SPEECHSERVE_FIRST_WAIT_FRAMES"] = str(args.first_wait_frames)
 
     import uvicorn
 

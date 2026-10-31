@@ -318,5 +318,1133 @@
       "max_abs_diff": 0.00106,
       "correlation": 1.0
     }
+  },
+  {
+    "variant": "first_wait4",
+    "date": "2026-10-31T11:04:10+00:00",
+    "gpu": "NVIDIA L4",
+    "model": "w4a16_lmhead tokens; SNAC hubertsiuzdak/snac_24khz",
+    "vllm_version": "0.32.0",
+    "torch_version": "2.13.0+cu130",
+    "python_version": "3.13.16",
+    "config": {
+      "chunk": {
+        "first_chunk_frames": 1,
+        "first_wait_frames": 4,
+        "chunk_frames": 1,
+        "chunk_safety_ms": 50.0,
+        "left_context": 1,
+        "right_context": 2,
+        "skip_first_frame": true,
+        "flush_tail": true
+      },
+      "snac_dtype": "float32",
+      "snac_graphs": false,
+      "noise": "off",
+      "tf32": true,
+      "reference": "fp32 whole-sequence decode, noise off",
+      "frames_file": "/content/drive/MyDrive/speech-infra/step6b/paragraph_frames.json",
+      "replay_decode_s": 0.02
+    },
+    "frames": 192,
+    "windows": 190,
+    "later_chunk_sizes": {
+      "1": 188
+    },
+    "snac_frames_decoded_per_emitted_frame": 3.974,
+    "stream_vs_whole": {
+      "snr_db": 25.14,
+      "max_abs_diff": 0.04888,
+      "correlation": 0.99847
+    },
+    "boundary": {
+      "n": 189,
+      "max_jump": 0.0651,
+      "max_jump_excess_vs_whole": 0.0249,
+      "p99_9_jump_anywhere": 0.1704
+    },
+    "first_300ms": {
+      "snr_db": 30.85,
+      "max_abs_diff": 0.00028,
+      "correlation": 0.99966
+    },
+    "first_boundary": {
+      "sample": 2048,
+      "jump": 0.0,
+      "whole_jump_same_sample": 0.0001,
+      "excess": -0.0
+    },
+    "starts_at_frame": 1,
+    "right_context_first10": [
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2
+    ]
+  },
+  {
+    "variant": "first_wait3",
+    "date": "2026-10-31T11:04:16+00:00",
+    "gpu": "NVIDIA L4",
+    "model": "w4a16_lmhead tokens; SNAC hubertsiuzdak/snac_24khz",
+    "vllm_version": "0.32.0",
+    "torch_version": "2.13.0+cu130",
+    "python_version": "3.13.16",
+    "config": {
+      "chunk": {
+        "first_chunk_frames": 1,
+        "first_wait_frames": 3,
+        "chunk_frames": 1,
+        "chunk_safety_ms": 50.0,
+        "left_context": 1,
+        "right_context": 2,
+        "skip_first_frame": true,
+        "flush_tail": true
+      },
+      "snac_dtype": "float32",
+      "snac_graphs": false,
+      "noise": "off",
+      "tf32": true,
+      "reference": "fp32 whole-sequence decode, noise off",
+      "frames_file": "/content/drive/MyDrive/speech-infra/step6b/paragraph_frames.json",
+      "replay_decode_s": 0.02
+    },
+    "frames": 192,
+    "windows": 192,
+    "later_chunk_sizes": {
+      "1": 190
+    },
+    "snac_frames_decoded_per_emitted_frame": 3.979,
+    "stream_vs_whole": {
+      "snr_db": 25.14,
+      "max_abs_diff": 0.04888,
+      "correlation": 0.99847
+    },
+    "boundary": {
+      "n": 191,
+      "max_jump": 0.0651,
+      "max_jump_excess_vs_whole": 0.0249,
+      "p99_9_jump_anywhere": 0.1703
+    },
+    "first_300ms": {
+      "snr_db": 33.48,
+      "max_abs_diff": 0.00026,
+      "correlation": 0.99982
+    },
+    "first_boundary": {
+      "sample": 2048,
+      "jump": 0.0001,
+      "whole_jump_same_sample": 0.0,
+      "excess": 0.0
+    },
+    "starts_at_frame": 0,
+    "right_context_first10": [
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2
+    ]
+  },
+  {
+    "variant": "first_wait2",
+    "date": "2026-10-31T11:04:22+00:00",
+    "gpu": "NVIDIA L4",
+    "model": "w4a16_lmhead tokens; SNAC hubertsiuzdak/snac_24khz",
+    "vllm_version": "0.32.0",
+    "torch_version": "2.13.0+cu130",
+    "python_version": "3.13.16",
+    "config": {
+      "chunk": {
+        "first_chunk_frames": 1,
+        "first_wait_frames": 2,
+        "chunk_frames": 1,
+        "chunk_safety_ms": 50.0,
+        "left_context": 1,
+        "right_context": 2,
+        "skip_first_frame": true,
+        "flush_tail": true
+      },
+      "snac_dtype": "float32",
+      "snac_graphs": false,
+      "noise": "off",
+      "tf32": true,
+      "reference": "fp32 whole-sequence decode, noise off",
+      "frames_file": "/content/drive/MyDrive/speech-infra/step6b/paragraph_frames.json",
+      "replay_decode_s": 0.02
+    },
+    "frames": 192,
+    "windows": 192,
+    "later_chunk_sizes": {
+      "1": 190
+    },
+    "snac_frames_decoded_per_emitted_frame": 3.953,
+    "stream_vs_whole": {
+      "snr_db": 25.14,
+      "max_abs_diff": 0.04888,
+      "correlation": 0.99847
+    },
+    "boundary": {
+      "n": 191,
+      "max_jump": 0.0651,
+      "max_jump_excess_vs_whole": 0.0249,
+      "p99_9_jump_anywhere": 0.1703
+    },
+    "first_300ms": {
+      "snr_db": 30.55,
+      "max_abs_diff": 0.00026,
+      "correlation": 0.99962
+    },
+    "first_boundary": {
+      "sample": 2048,
+      "jump": 0.0,
+      "whole_jump_same_sample": 0.0,
+      "excess": -0.0
+    },
+    "starts_at_frame": 0,
+    "right_context_first10": [
+      1,
+      1,
+      1,
+      1,
+      2,
+      1,
+      2,
+      2,
+      2,
+      2
+    ]
+  },
+  {
+    "variant": "first_wait1",
+    "date": "2026-10-31T11:04:28+00:00",
+    "gpu": "NVIDIA L4",
+    "model": "w4a16_lmhead tokens; SNAC hubertsiuzdak/snac_24khz",
+    "vllm_version": "0.32.0",
+    "torch_version": "2.13.0+cu130",
+    "python_version": "3.13.16",
+    "config": {
+      "chunk": {
+        "first_chunk_frames": 1,
+        "first_wait_frames": 1,
+        "chunk_frames": 1,
+        "chunk_safety_ms": 50.0,
+        "left_context": 1,
+        "right_context": 2,
+        "skip_first_frame": true,
+        "flush_tail": true
+      },
+      "snac_dtype": "float32",
+      "snac_graphs": false,
+      "noise": "off",
+      "tf32": true,
+      "reference": "fp32 whole-sequence decode, noise off",
+      "frames_file": "/content/drive/MyDrive/speech-infra/step6b/paragraph_frames.json",
+      "replay_decode_s": 0.02
+    },
+    "frames": 192,
+    "windows": 192,
+    "later_chunk_sizes": {
+      "1": 190
+    },
+    "snac_frames_decoded_per_emitted_frame": 3.911,
+    "stream_vs_whole": {
+      "snr_db": 25.09,
+      "max_abs_diff": 0.04888,
+      "correlation": 0.99845
+    },
+    "boundary": {
+      "n": 191,
+      "max_jump": 0.0651,
+      "max_jump_excess_vs_whole": 0.0249,
+      "p99_9_jump_anywhere": 0.1703
+    },
+    "first_300ms": {
+      "snr_db": 10.64,
+      "max_abs_diff": 0.00318,
+      "correlation": 0.97079
+    },
+    "first_boundary": {
+      "sample": 2048,
+      "jump": 0.0011,
+      "whole_jump_same_sample": 0.0,
+      "excess": 0.001
+    },
+    "starts_at_frame": 0,
+    "right_context_first10": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      0,
+      2,
+      2,
+      2
+    ]
+  },
+  {
+    "variant": "fw4_yes",
+    "date": "2026-10-31T11:05:57+00:00",
+    "gpu": "NVIDIA L4",
+    "model": "w4a16_lmhead tokens; SNAC hubertsiuzdak/snac_24khz",
+    "vllm_version": "0.32.0",
+    "torch_version": "2.13.0+cu130",
+    "python_version": "3.13.16",
+    "text": "Yes, absolutely.",
+    "config": {
+      "chunk": {
+        "first_chunk_frames": 1,
+        "first_wait_frames": 4,
+        "chunk_frames": 1,
+        "chunk_safety_ms": 50.0,
+        "left_context": 1,
+        "right_context": 2,
+        "skip_first_frame": true,
+        "flush_tail": true
+      },
+      "snac_dtype": "float32",
+      "snac_graphs": false,
+      "noise": "off",
+      "tf32": true,
+      "reference": "fp32 whole-sequence decode, noise off",
+      "frames_file": "/content/drive/MyDrive/speech-infra/step6b/frames_yes.json",
+      "replay_decode_s": 0.02
+    },
+    "frames": 34,
+    "windows": 32,
+    "later_chunk_sizes": {
+      "1": 30
+    },
+    "snac_frames_decoded_per_emitted_frame": 3.848,
+    "stream_vs_whole": {
+      "snr_db": 23.48,
+      "max_abs_diff": 0.03355,
+      "correlation": 0.99775
+    },
+    "boundary": {
+      "n": 31,
+      "max_jump": 0.0665,
+      "max_jump_excess_vs_whole": 0.0242,
+      "p99_9_jump_anywhere": 0.1634
+    },
+    "first_300ms": {
+      "snr_db": 27.39,
+      "max_abs_diff": 0.0004,
+      "correlation": 0.99924,
+      "ref_rms": 0.0013
+    },
+    "first_boundary": {
+      "sample": 2048,
+      "jump": 0.0002,
+      "whole_jump_same_sample": 0.0001,
+      "excess": 0.0
+    },
+    "starts_at_frame": 1,
+    "right_context_first10": [
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2
+    ]
+  },
+  {
+    "variant": "fw3_yes",
+    "date": "2026-10-31T11:06:03+00:00",
+    "gpu": "NVIDIA L4",
+    "model": "w4a16_lmhead tokens; SNAC hubertsiuzdak/snac_24khz",
+    "vllm_version": "0.32.0",
+    "torch_version": "2.13.0+cu130",
+    "python_version": "3.13.16",
+    "text": "Yes, absolutely.",
+    "config": {
+      "chunk": {
+        "first_chunk_frames": 1,
+        "first_wait_frames": 3,
+        "chunk_frames": 1,
+        "chunk_safety_ms": 50.0,
+        "left_context": 1,
+        "right_context": 2,
+        "skip_first_frame": true,
+        "flush_tail": true
+      },
+      "snac_dtype": "float32",
+      "snac_graphs": false,
+      "noise": "off",
+      "tf32": true,
+      "reference": "fp32 whole-sequence decode, noise off",
+      "frames_file": "/content/drive/MyDrive/speech-infra/step6b/frames_yes.json",
+      "replay_decode_s": 0.02
+    },
+    "frames": 34,
+    "windows": 34,
+    "later_chunk_sizes": {
+      "1": 32
+    },
+    "snac_frames_decoded_per_emitted_frame": 3.882,
+    "stream_vs_whole": {
+      "snr_db": 23.48,
+      "max_abs_diff": 0.03355,
+      "correlation": 0.99775
+    },
+    "boundary": {
+      "n": 33,
+      "max_jump": 0.0665,
+      "max_jump_excess_vs_whole": 0.0242,
+      "p99_9_jump_anywhere": 0.1633
+    },
+    "first_300ms": {
+      "snr_db": 28.96,
+      "max_abs_diff": 0.0004,
+      "correlation": 0.99944,
+      "ref_rms": 0.0014
+    },
+    "first_boundary": {
+      "sample": 2048,
+      "jump": 0.0001,
+      "whole_jump_same_sample": 0.0002,
+      "excess": -0.0
+    },
+    "starts_at_frame": 0,
+    "right_context_first10": [
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2
+    ]
+  },
+  {
+    "variant": "fw2_yes",
+    "date": "2026-10-31T11:06:08+00:00",
+    "gpu": "NVIDIA L4",
+    "model": "w4a16_lmhead tokens; SNAC hubertsiuzdak/snac_24khz",
+    "vllm_version": "0.32.0",
+    "torch_version": "2.13.0+cu130",
+    "python_version": "3.13.16",
+    "text": "Yes, absolutely.",
+    "config": {
+      "chunk": {
+        "first_chunk_frames": 1,
+        "first_wait_frames": 2,
+        "chunk_frames": 1,
+        "chunk_safety_ms": 50.0,
+        "left_context": 1,
+        "right_context": 2,
+        "skip_first_frame": true,
+        "flush_tail": true
+      },
+      "snac_dtype": "float32",
+      "snac_graphs": false,
+      "noise": "off",
+      "tf32": true,
+      "reference": "fp32 whole-sequence decode, noise off",
+      "frames_file": "/content/drive/MyDrive/speech-infra/step6b/frames_yes.json",
+      "replay_decode_s": 0.02
+    },
+    "frames": 34,
+    "windows": 34,
+    "later_chunk_sizes": {
+      "1": 32
+    },
+    "snac_frames_decoded_per_emitted_frame": 3.735,
+    "stream_vs_whole": {
+      "snr_db": 23.48,
+      "max_abs_diff": 0.03355,
+      "correlation": 0.99775
+    },
+    "boundary": {
+      "n": 33,
+      "max_jump": 0.0665,
+      "max_jump_excess_vs_whole": 0.0242,
+      "p99_9_jump_anywhere": 0.1633
+    },
+    "first_300ms": {
+      "snr_db": 26.76,
+      "max_abs_diff": 0.00039,
+      "correlation": 0.99909,
+      "ref_rms": 0.0014
+    },
+    "first_boundary": {
+      "sample": 2048,
+      "jump": 0.0002,
+      "whole_jump_same_sample": 0.0002,
+      "excess": 0.0
+    },
+    "starts_at_frame": 0,
+    "right_context_first10": [
+      1,
+      1,
+      1,
+      1,
+      2,
+      1,
+      2,
+      2,
+      2,
+      2
+    ]
+  },
+  {
+    "variant": "fw1_yes",
+    "date": "2026-10-31T11:06:13+00:00",
+    "gpu": "NVIDIA L4",
+    "model": "w4a16_lmhead tokens; SNAC hubertsiuzdak/snac_24khz",
+    "vllm_version": "0.32.0",
+    "torch_version": "2.13.0+cu130",
+    "python_version": "3.13.16",
+    "text": "Yes, absolutely.",
+    "config": {
+      "chunk": {
+        "first_chunk_frames": 1,
+        "first_wait_frames": 1,
+        "chunk_frames": 1,
+        "chunk_safety_ms": 50.0,
+        "left_context": 1,
+        "right_context": 2,
+        "skip_first_frame": true,
+        "flush_tail": true
+      },
+      "snac_dtype": "float32",
+      "snac_graphs": false,
+      "noise": "off",
+      "tf32": true,
+      "reference": "fp32 whole-sequence decode, noise off",
+      "frames_file": "/content/drive/MyDrive/speech-infra/step6b/frames_yes.json",
+      "replay_decode_s": 0.02
+    },
+    "frames": 34,
+    "windows": 34,
+    "later_chunk_sizes": {
+      "1": 32
+    },
+    "snac_frames_decoded_per_emitted_frame": 3.441,
+    "stream_vs_whole": {
+      "snr_db": 13.83,
+      "max_abs_diff": 0.16335,
+      "correlation": 0.97947
+    },
+    "boundary": {
+      "n": 33,
+      "max_jump": 0.0665,
+      "max_jump_excess_vs_whole": 0.0242,
+      "p99_9_jump_anywhere": 0.1633
+    },
+    "first_300ms": {
+      "snr_db": 8.72,
+      "max_abs_diff": 0.00309,
+      "correlation": 0.95132,
+      "ref_rms": 0.0014
+    },
+    "first_boundary": {
+      "sample": 2048,
+      "jump": 0.0006,
+      "whole_jump_same_sample": 0.0002,
+      "excess": 0.0005
+    },
+    "starts_at_frame": 0,
+    "right_context_first10": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      2,
+      1,
+      0,
+      2
+    ]
+  },
+  {
+    "variant": "fw4_see_you",
+    "date": "2026-10-31T11:06:18+00:00",
+    "gpu": "NVIDIA L4",
+    "model": "w4a16_lmhead tokens; SNAC hubertsiuzdak/snac_24khz",
+    "vllm_version": "0.32.0",
+    "torch_version": "2.13.0+cu130",
+    "python_version": "3.13.16",
+    "text": "See you tomorrow at noon.",
+    "config": {
+      "chunk": {
+        "first_chunk_frames": 1,
+        "first_wait_frames": 4,
+        "chunk_frames": 1,
+        "chunk_safety_ms": 50.0,
+        "left_context": 1,
+        "right_context": 2,
+        "skip_first_frame": true,
+        "flush_tail": true
+      },
+      "snac_dtype": "float32",
+      "snac_graphs": false,
+      "noise": "off",
+      "tf32": true,
+      "reference": "fp32 whole-sequence decode, noise off",
+      "frames_file": "/content/drive/MyDrive/speech-infra/step6b/frames_see_you.json",
+      "replay_decode_s": 0.02
+    },
+    "frames": 26,
+    "windows": 24,
+    "later_chunk_sizes": {
+      "1": 22
+    },
+    "snac_frames_decoded_per_emitted_frame": 3.8,
+    "stream_vs_whole": {
+      "snr_db": 28.46,
+      "max_abs_diff": 0.01306,
+      "correlation": 0.9993
+    },
+    "boundary": {
+      "n": 23,
+      "max_jump": 0.0237,
+      "max_jump_excess_vs_whole": 0.0125,
+      "p99_9_jump_anywhere": 0.0889
+    },
+    "first_300ms": {
+      "snr_db": 30.1,
+      "max_abs_diff": 0.00058,
+      "correlation": 0.99964,
+      "ref_rms": 0.0018
+    },
+    "first_boundary": {
+      "sample": 2048,
+      "jump": 0.0001,
+      "whole_jump_same_sample": 0.0,
+      "excess": 0.0
+    },
+    "starts_at_frame": 1,
+    "right_context_first10": [
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2
+    ]
+  },
+  {
+    "variant": "fw3_see_you",
+    "date": "2026-10-31T11:06:23+00:00",
+    "gpu": "NVIDIA L4",
+    "model": "w4a16_lmhead tokens; SNAC hubertsiuzdak/snac_24khz",
+    "vllm_version": "0.32.0",
+    "torch_version": "2.13.0+cu130",
+    "python_version": "3.13.16",
+    "text": "See you tomorrow at noon.",
+    "config": {
+      "chunk": {
+        "first_chunk_frames": 1,
+        "first_wait_frames": 3,
+        "chunk_frames": 1,
+        "chunk_safety_ms": 50.0,
+        "left_context": 1,
+        "right_context": 2,
+        "skip_first_frame": true,
+        "flush_tail": true
+      },
+      "snac_dtype": "float32",
+      "snac_graphs": false,
+      "noise": "off",
+      "tf32": true,
+      "reference": "fp32 whole-sequence decode, noise off",
+      "frames_file": "/content/drive/MyDrive/speech-infra/step6b/frames_see_you.json",
+      "replay_decode_s": 0.02
+    },
+    "frames": 26,
+    "windows": 26,
+    "later_chunk_sizes": {
+      "1": 24
+    },
+    "snac_frames_decoded_per_emitted_frame": 3.846,
+    "stream_vs_whole": {
+      "snr_db": 28.46,
+      "max_abs_diff": 0.01306,
+      "correlation": 0.9993
+    },
+    "boundary": {
+      "n": 25,
+      "max_jump": 0.0237,
+      "max_jump_excess_vs_whole": 0.0125,
+      "p99_9_jump_anywhere": 0.0881
+    },
+    "first_300ms": {
+      "snr_db": 34.66,
+      "max_abs_diff": 0.00027,
+      "correlation": 0.99986,
+      "ref_rms": 0.0018
+    },
+    "first_boundary": {
+      "sample": 2048,
+      "jump": 0.0001,
+      "whole_jump_same_sample": 0.0001,
+      "excess": -0.0
+    },
+    "starts_at_frame": 0,
+    "right_context_first10": [
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2
+    ]
+  },
+  {
+    "variant": "fw2_see_you",
+    "date": "2026-10-31T11:06:27+00:00",
+    "gpu": "NVIDIA L4",
+    "model": "w4a16_lmhead tokens; SNAC hubertsiuzdak/snac_24khz",
+    "vllm_version": "0.32.0",
+    "torch_version": "2.13.0+cu130",
+    "python_version": "3.13.16",
+    "text": "See you tomorrow at noon.",
+    "config": {
+      "chunk": {
+        "first_chunk_frames": 1,
+        "first_wait_frames": 2,
+        "chunk_frames": 1,
+        "chunk_safety_ms": 50.0,
+        "left_context": 1,
+        "right_context": 2,
+        "skip_first_frame": true,
+        "flush_tail": true
+      },
+      "snac_dtype": "float32",
+      "snac_graphs": false,
+      "noise": "off",
+      "tf32": true,
+      "reference": "fp32 whole-sequence decode, noise off",
+      "frames_file": "/content/drive/MyDrive/speech-infra/step6b/frames_see_you.json",
+      "replay_decode_s": 0.02
+    },
+    "frames": 26,
+    "windows": 26,
+    "later_chunk_sizes": {
+      "1": 24
+    },
+    "snac_frames_decoded_per_emitted_frame": 3.654,
+    "stream_vs_whole": {
+      "snr_db": 28.27,
+      "max_abs_diff": 0.01306,
+      "correlation": 0.99927
+    },
+    "boundary": {
+      "n": 25,
+      "max_jump": 0.0232,
+      "max_jump_excess_vs_whole": 0.0125,
+      "p99_9_jump_anywhere": 0.0881
+    },
+    "first_300ms": {
+      "snr_db": 31.54,
+      "max_abs_diff": 0.00027,
+      "correlation": 0.99972,
+      "ref_rms": 0.0018
+    },
+    "first_boundary": {
+      "sample": 2048,
+      "jump": 0.0001,
+      "whole_jump_same_sample": 0.0001,
+      "excess": 0.0001
+    },
+    "starts_at_frame": 0,
+    "right_context_first10": [
+      1,
+      1,
+      1,
+      1,
+      2,
+      1,
+      2,
+      2,
+      2,
+      2
+    ]
+  },
+  {
+    "variant": "fw1_see_you",
+    "date": "2026-10-31T11:06:32+00:00",
+    "gpu": "NVIDIA L4",
+    "model": "w4a16_lmhead tokens; SNAC hubertsiuzdak/snac_24khz",
+    "vllm_version": "0.32.0",
+    "torch_version": "2.13.0+cu130",
+    "python_version": "3.13.16",
+    "text": "See you tomorrow at noon.",
+    "config": {
+      "chunk": {
+        "first_chunk_frames": 1,
+        "first_wait_frames": 1,
+        "chunk_frames": 1,
+        "chunk_safety_ms": 50.0,
+        "left_context": 1,
+        "right_context": 2,
+        "skip_first_frame": true,
+        "flush_tail": true
+      },
+      "snac_dtype": "float32",
+      "snac_graphs": false,
+      "noise": "off",
+      "tf32": true,
+      "reference": "fp32 whole-sequence decode, noise off",
+      "frames_file": "/content/drive/MyDrive/speech-infra/step6b/frames_see_you.json",
+      "replay_decode_s": 0.02
+    },
+    "frames": 26,
+    "windows": 26,
+    "later_chunk_sizes": {
+      "1": 24
+    },
+    "snac_frames_decoded_per_emitted_frame": 3.269,
+    "stream_vs_whole": {
+      "snr_db": 13.97,
+      "max_abs_diff": 0.20335,
+      "correlation": 0.97981
+    },
+    "boundary": {
+      "n": 25,
+      "max_jump": 0.1158,
+      "max_jump_excess_vs_whole": 0.0978,
+      "p99_9_jump_anywhere": 0.0885
+    },
+    "first_300ms": {
+      "snr_db": 11.31,
+      "max_abs_diff": 0.00279,
+      "correlation": 0.97487,
+      "ref_rms": 0.0018
+    },
+    "first_boundary": {
+      "sample": 2048,
+      "jump": 0.0015,
+      "whole_jump_same_sample": 0.0001,
+      "excess": 0.0014
+    },
+    "starts_at_frame": 0,
+    "right_context_first10": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      2,
+      1,
+      0,
+      2
+    ]
+  },
+  {
+    "variant": "fw4_peter_piper",
+    "date": "2026-10-31T11:06:37+00:00",
+    "gpu": "NVIDIA L4",
+    "model": "w4a16_lmhead tokens; SNAC hubertsiuzdak/snac_24khz",
+    "vllm_version": "0.32.0",
+    "torch_version": "2.13.0+cu130",
+    "python_version": "3.13.16",
+    "text": "Peter Piper picked a peck of pickled peppers.",
+    "config": {
+      "chunk": {
+        "first_chunk_frames": 1,
+        "first_wait_frames": 4,
+        "chunk_frames": 1,
+        "chunk_safety_ms": 50.0,
+        "left_context": 1,
+        "right_context": 2,
+        "skip_first_frame": true,
+        "flush_tail": true
+      },
+      "snac_dtype": "float32",
+      "snac_graphs": false,
+      "noise": "off",
+      "tf32": true,
+      "reference": "fp32 whole-sequence decode, noise off",
+      "frames_file": "/content/drive/MyDrive/speech-infra/step6b/frames_peter_piper.json",
+      "replay_decode_s": 0.02
+    },
+    "frames": 45,
+    "windows": 43,
+    "later_chunk_sizes": {
+      "1": 41
+    },
+    "snac_frames_decoded_per_emitted_frame": 3.886,
+    "stream_vs_whole": {
+      "snr_db": 25.59,
+      "max_abs_diff": 0.01632,
+      "correlation": 0.99863
+    },
+    "boundary": {
+      "n": 42,
+      "max_jump": 0.0233,
+      "max_jump_excess_vs_whole": 0.0037,
+      "p99_9_jump_anywhere": 0.0591
+    },
+    "first_300ms": {
+      "snr_db": 29.09,
+      "max_abs_diff": 0.00033,
+      "correlation": 0.99961,
+      "ref_rms": 0.0014
+    },
+    "first_boundary": {
+      "sample": 2048,
+      "jump": 0.0001,
+      "whole_jump_same_sample": 0.0,
+      "excess": 0.0001
+    },
+    "starts_at_frame": 1,
+    "right_context_first10": [
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2
+    ]
+  },
+  {
+    "variant": "fw3_peter_piper",
+    "date": "2026-10-31T11:06:42+00:00",
+    "gpu": "NVIDIA L4",
+    "model": "w4a16_lmhead tokens; SNAC hubertsiuzdak/snac_24khz",
+    "vllm_version": "0.32.0",
+    "torch_version": "2.13.0+cu130",
+    "python_version": "3.13.16",
+    "text": "Peter Piper picked a peck of pickled peppers.",
+    "config": {
+      "chunk": {
+        "first_chunk_frames": 1,
+        "first_wait_frames": 3,
+        "chunk_frames": 1,
+        "chunk_safety_ms": 50.0,
+        "left_context": 1,
+        "right_context": 2,
+        "skip_first_frame": true,
+        "flush_tail": true
+      },
+      "snac_dtype": "float32",
+      "snac_graphs": false,
+      "noise": "off",
+      "tf32": true,
+      "reference": "fp32 whole-sequence decode, noise off",
+      "frames_file": "/content/drive/MyDrive/speech-infra/step6b/frames_peter_piper.json",
+      "replay_decode_s": 0.02
+    },
+    "frames": 45,
+    "windows": 45,
+    "later_chunk_sizes": {
+      "1": 43
+    },
+    "snac_frames_decoded_per_emitted_frame": 3.911,
+    "stream_vs_whole": {
+      "snr_db": 25.59,
+      "max_abs_diff": 0.01632,
+      "correlation": 0.99863
+    },
+    "boundary": {
+      "n": 44,
+      "max_jump": 0.0233,
+      "max_jump_excess_vs_whole": 0.0037,
+      "p99_9_jump_anywhere": 0.0589
+    },
+    "first_300ms": {
+      "snr_db": 30.0,
+      "max_abs_diff": 0.00033,
+      "correlation": 0.99968,
+      "ref_rms": 0.0014
+    },
+    "first_boundary": {
+      "sample": 2048,
+      "jump": 0.0001,
+      "whole_jump_same_sample": 0.0001,
+      "excess": -0.0
+    },
+    "starts_at_frame": 0,
+    "right_context_first10": [
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2
+    ]
+  },
+  {
+    "variant": "fw2_peter_piper",
+    "date": "2026-10-31T11:06:47+00:00",
+    "gpu": "NVIDIA L4",
+    "model": "w4a16_lmhead tokens; SNAC hubertsiuzdak/snac_24khz",
+    "vllm_version": "0.32.0",
+    "torch_version": "2.13.0+cu130",
+    "python_version": "3.13.16",
+    "text": "Peter Piper picked a peck of pickled peppers.",
+    "config": {
+      "chunk": {
+        "first_chunk_frames": 1,
+        "first_wait_frames": 2,
+        "chunk_frames": 1,
+        "chunk_safety_ms": 50.0,
+        "left_context": 1,
+        "right_context": 2,
+        "skip_first_frame": true,
+        "flush_tail": true
+      },
+      "snac_dtype": "float32",
+      "snac_graphs": false,
+      "noise": "off",
+      "tf32": true,
+      "reference": "fp32 whole-sequence decode, noise off",
+      "frames_file": "/content/drive/MyDrive/speech-infra/step6b/frames_peter_piper.json",
+      "replay_decode_s": 0.02
+    },
+    "frames": 45,
+    "windows": 45,
+    "later_chunk_sizes": {
+      "1": 43
+    },
+    "snac_frames_decoded_per_emitted_frame": 3.8,
+    "stream_vs_whole": {
+      "snr_db": 25.59,
+      "max_abs_diff": 0.01632,
+      "correlation": 0.99863
+    },
+    "boundary": {
+      "n": 44,
+      "max_jump": 0.0233,
+      "max_jump_excess_vs_whole": 0.0037,
+      "p99_9_jump_anywhere": 0.0589
+    },
+    "first_300ms": {
+      "snr_db": 27.77,
+      "max_abs_diff": 0.00038,
+      "correlation": 0.99938,
+      "ref_rms": 0.0014
+    },
+    "first_boundary": {
+      "sample": 2048,
+      "jump": 0.0001,
+      "whole_jump_same_sample": 0.0001,
+      "excess": -0.0001
+    },
+    "starts_at_frame": 0,
+    "right_context_first10": [
+      1,
+      1,
+      1,
+      1,
+      2,
+      1,
+      2,
+      2,
+      2,
+      2
+    ]
+  },
+  {
+    "variant": "fw1_peter_piper",
+    "date": "2026-10-31T11:06:51+00:00",
+    "gpu": "NVIDIA L4",
+    "model": "w4a16_lmhead tokens; SNAC hubertsiuzdak/snac_24khz",
+    "vllm_version": "0.32.0",
+    "torch_version": "2.13.0+cu130",
+    "python_version": "3.13.16",
+    "text": "Peter Piper picked a peck of pickled peppers.",
+    "config": {
+      "chunk": {
+        "first_chunk_frames": 1,
+        "first_wait_frames": 1,
+        "chunk_frames": 1,
+        "chunk_safety_ms": 50.0,
+        "left_context": 1,
+        "right_context": 2,
+        "skip_first_frame": true,
+        "flush_tail": true
+      },
+      "snac_dtype": "float32",
+      "snac_graphs": false,
+      "noise": "off",
+      "tf32": true,
+      "reference": "fp32 whole-sequence decode, noise off",
+      "frames_file": "/content/drive/MyDrive/speech-infra/step6b/frames_peter_piper.json",
+      "replay_decode_s": 0.02
+    },
+    "frames": 45,
+    "windows": 45,
+    "later_chunk_sizes": {
+      "1": 43
+    },
+    "snac_frames_decoded_per_emitted_frame": 3.578,
+    "stream_vs_whole": {
+      "snr_db": 25.48,
+      "max_abs_diff": 0.01632,
+      "correlation": 0.9986
+    },
+    "boundary": {
+      "n": 44,
+      "max_jump": 0.0233,
+      "max_jump_excess_vs_whole": 0.0037,
+      "p99_9_jump_anywhere": 0.0589
+    },
+    "first_300ms": {
+      "snr_db": 8.32,
+      "max_abs_diff": 0.0029,
+      "correlation": 0.95646,
+      "ref_rms": 0.0014
+    },
+    "first_boundary": {
+      "sample": 2048,
+      "jump": 0.0005,
+      "whole_jump_same_sample": 0.0001,
+      "excess": 0.0004
+    },
+    "starts_at_frame": 0,
+    "right_context_first10": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      2,
+      1,
+      0,
+      2
+    ]
   }
 ]

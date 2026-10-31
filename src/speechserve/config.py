@@ -82,6 +82,11 @@ class ChunkConfig:
     of right context around the 1 frame that is emitted.
     """
     first_chunk_frames: int = 1   # audio frames in the first chunk (tuned in step 6)
+    # Frames the first chunk waits for (step 6c). 4 = upstream: decode frames 0-3, emit frame 1 (frame 0 is
+    # never played). W < 4: decode frames 0..W-1 and emit frame 0 with W-1 frames of right context; the next
+    # frames may also go out with fewer right frames (never fewer than W-1) until the client's buffer allows
+    # waiting for the standard 2 (see codec.ChunkPlanner).
+    first_wait_frames: int = 4
     # Max audio frames in each later chunk. 1 = upstream (one window per frame). > 1 (step 6b): chunks
     # grow in powers of two up to this cap, but only while the client's buffer can cover the wait
     # (see codec.ChunkPlanner); without timing info the planner waits for full-size chunks.

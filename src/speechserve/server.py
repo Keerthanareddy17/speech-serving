@@ -12,7 +12,7 @@ Protocol on /ws/tts (a connection may send several requests, one after another):
 Settings come from env vars (set by scripts/run_server.py): SPEECHSERVE_PRESET, SPEECHSERVE_LOG,
 SPEECHSERVE_DECODER (batched | per_stream), SPEECHSERVE_SNAC_MAX_BATCH, SPEECHSERVE_SNAC_MAX_WAIT_MS,
 SPEECHSERVE_SNAC_MAX_FRAMES, SPEECHSERVE_CHUNK_FRAMES, SPEECHSERVE_CHUNK_SAFETY_MS, SPEECHSERVE_SNAC_DTYPE,
-SPEECHSERVE_SNAC_GRAPHS (1 = CUDA graphs, batched decoder only).
+SPEECHSERVE_SNAC_GRAPHS (1 = CUDA graphs, batched decoder only), SPEECHSERVE_FIRST_WAIT_FRAMES.
 """
 
 from __future__ import annotations
@@ -55,13 +55,21 @@ S = State()
 async def synthesize(text: str, voice: str, send_bytes) -> dict:
     """Run one request, sending PCM16 chunks through `send_bytes`. Returns its timings."""
     info: dict = {}
+    timing: dict = {}
     asm = FrameAssembler()
     t0 = time.perf_counter()
+
+    async def tokens():                                     # record when vLLM's first output arrives
+        async for ids in S.engine.stream(text, voice, info=info):
+            if "first_output_s" not in timing:
+                timing["first_output_s"] = time.perf_counter()
+            yield ids
+
     ttfa = None
     audio_samples = 0
     n_chunks = 0
     decode_ms = wait_ms = 0.0
-    async with aclosing(stream_audio(S.engine.stream(text, voice, info=info), S.decoder, S.chunk_cfg, asm)) as chunks:
+    async with aclosing(stream_audio(tokens(), S.decoder, S.chunk_cfg, asm, timing)) as chunks:
         async for c in chunks:
             await send_bytes((np.clip(c.pcm, -1.0, 1.0) * 32767).astype("<i2").tobytes())
             if ttfa is None:
@@ -85,7 +93,18 @@ async def synthesize(text: str, voice: str, send_bytes) -> dict:
         "chunks": n_chunks,
         "snac_ms_mean": round(decode_ms / n_chunks, 2) if n_chunks else None,
         "snac_wait_ms_mean": round(wait_ms / n_chunks, 2) if n_chunks else None,  # queued behind other streams
+        # TTFA breakdown (step 6c), all ms from receiving the request
+        "ttfa_first_output_ms": ms_since(t0, timing.get("first_output_s")),
+        "ttfa_first_window_ms": ms_since(t0, timing.get("first_window_planned_s")),
+        "ttfa_first_window_audio_tokens": timing.get("first_window_audio_tokens"),
+        "ttfa_first_chunk_ready_ms": ms_since(t0, timing.get("first_chunk_ready_s")),
+        "first_chunk_decode_ms": round(timing["first_chunk_decode_ms"], 2) if "first_chunk_decode_ms" in timing else None,
+        "first_chunk_wait_ms": round(timing["first_chunk_wait_ms"], 2) if "first_chunk_wait_ms" in timing else None,
     }
+
+
+def ms_since(t0, t):
+    return None if t is None else round((t - t0) * 1000, 1)
 
 
 # vLLM 0.32's Triton top-p sampler splits each row over S blocks, S = a power of two chosen from the batch
@@ -175,7 +194,8 @@ def vllm_metrics() -> dict:
 async def lifespan(app: FastAPI):
     S.preset = os.environ.get("SPEECHSERVE_PRESET", C.DEFAULT_PRESET)
     S.chunk_cfg = C.ChunkConfig(chunk_frames=int(os.environ.get("SPEECHSERVE_CHUNK_FRAMES", "1")),
-                                chunk_safety_ms=float(os.environ.get("SPEECHSERVE_CHUNK_SAFETY_MS", "50")))
+                                chunk_safety_ms=float(os.environ.get("SPEECHSERVE_CHUNK_SAFETY_MS", "50")),
+                                first_wait_frames=int(os.environ.get("SPEECHSERVE_FIRST_WAIT_FRAMES", "2")))
     S.metrics = ServerMetrics(os.environ.get("SPEECHSERVE_LOG", DEFAULT_LOG))
     S.engine = TTSEngine(S.preset)
     S.decoder = make_decoder()

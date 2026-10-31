@@ -1,0 +1,266 @@
+{
+  "date": "2026-10-31T11:25:15+00:00",
+  "gpu": "NVIDIA L4",
+  "vllm_version": "0.32.0",
+  "torch_version": "2.13.0+cu130",
+  "models": {
+    "w4a16_lmhead": "/content/drive/MyDrive/speech-infra/models/orpheus-3b-w4a16-lmhead"
+  },
+  "config": {
+    "sentences_file": "src/speechserve/quality_sentences.txt",
+    "n_sentences": 30,
+    "seeds": [
+      0,
+      1
+    ],
+    "voice": "tara",
+    "clips_dir": "/content/drive/MyDrive/speech-infra/quality/step6c_first_wait2",
+    "normalizer": "Whisper EnglishTextNormalizer (transformers WhisperTokenizer.normalize)",
+    "format_insensitive": "supplementary: also ignores number formatting (quality.make_format_insensitive)",
+    "metrics": "jiwer wer/cer per clip on normalised text; corpus_wer = total errors / total words",
+    "bootstrap": "paired over sentences (mean of seeds), 10000 resamples, 95% percentile CI",
+    "generation": {
+      "w4a16_lmhead": {
+        "date": "2026-10-31T11:24:36Z",
+        "gpu": "NVIDIA L4",
+        "model": "/content/drive/MyDrive/speech-infra/models/orpheus-3b-w4a16-lmhead",
+        "vllm_version": "0.32.0",
+        "torch_version": "2.13.0+cu130",
+        "engine": {
+          "tokenizer": "canopylabs/orpheus-3b-0.1-pretrained",
+          "dtype": "bfloat16",
+          "max_model_len": 4096,
+          "gpu_memory_utilization": 0.85,
+          "model": "/content/drive/MyDrive/speech-infra/models/orpheus-3b-w4a16-lmhead"
+        },
+        "sampling": {
+          "temperature": 0.6,
+          "top_p": 0.8,
+          "repetition_penalty": 1.3,
+          "max_tokens": 3000,
+          "stop_token_ids": [
+            128258
+          ],
+          "seed": 0
+        },
+        "chunk": {
+          "first_chunk_frames": 1,
+          "first_wait_frames": 2,
+          "chunk_frames": 1,
+          "chunk_safety_ms": 50.0,
+          "left_context": 1,
+          "right_context": 2,
+          "skip_first_frame": true,
+          "flush_tail": true
+        },
+        "voice": "tara",
+        "seeds": [
+          0,
+          1
+        ],
+        "path": "TTSEngine.stream -> codec.stream_audio (batched SNAC decoder)"
+      },
+      "whisper": {
+        "whisper_model": "large-v3",
+        "faster_whisper_version": "1.2.1",
+        "compute_type": "float16",
+        "args": {
+          "language": "en",
+          "beam_size": 5,
+          "condition_on_previous_text": false
+        },
+        "seconds": 26.7
+      }
+    }
+  },
+  "decoder": "batched",
+  "first_wait_frames": 2,
+  "per_config": {
+    "w4a16_lmhead": {
+      "model": "/content/drive/MyDrive/speech-infra/models/orpheus-3b-w4a16-lmhead",
+      "summary": {
+        "clips": 60,
+        "wer_mean": 0.0311,
+        "wer_median": 0.0,
+        "wer_p90": 0.1054,
+        "clips_wer_gt_20pct": 4,
+        "clips_wer_zero": 49,
+        "cer_mean": 0.009,
+        "corpus_wer": 0.0296,
+        "not_stopped_clips": 0
+      },
+      "summary_format_insensitive": {
+        "clips": 60,
+        "wer_mean": 0.0094,
+        "wer_median": 0.0,
+        "wer_p90": 0.0071,
+        "clips_wer_gt_20pct": 0,
+        "clips_wer_zero": 54,
+        "cer_mean": 0.0038,
+        "corpus_wer": 0.0082,
+        "not_stopped_clips": 0
+      },
+      "seed_noise": {
+        "mean_abs_seed_diff_per_sentence": 0.0233,
+        "mean_wer_seed_a": 0.0351,
+        "mean_wer_seed_b": 0.0272
+      },
+      "seed_noise_format_insensitive": {
+        "mean_abs_seed_diff_per_sentence": 0.0187,
+        "mean_wer_seed_a": 0.0136,
+        "mean_wer_seed_b": 0.0052
+      },
+      "worst5": [
+        {
+          "file": "s08_seed0.wav",
+          "wer": 0.4,
+          "wer_fmt": 0.125,
+          "cer": 0.1143,
+          "expected": "Call me back at 555-0142 after 7 p.m.",
+          "transcribed": "Call me back at 555-821-42 after 7pm.",
+          "ref_norm": "call me back at 555 142 after 7 p m",
+          "hyp_norm": "call me back at 555 821 42 after 7 pm"
+        },
+        {
+          "file": "s04_seed0.wav",
+          "wer": 0.2308,
+          "wer_fmt": 0.0,
+          "cer": 0.0526,
+          "expected": "The meeting is on March 3rd, 2025, at 4:30 in the afternoon.",
+          "transcribed": "The meeting is on March 3, 2025, at 4.30 in the afternoon.",
+          "ref_norm": "the meeting is on march 3rd 2025 at 4 30 in the afternoon",
+          "hyp_norm": "the meeting is on march 3 2025 at 4.30 in the afternoon"
+        },
+        {
+          "file": "s04_seed1.wav",
+          "wer": 0.2308,
+          "wer_fmt": 0.0,
+          "cer": 0.0526,
+          "expected": "The meeting is on March 3rd, 2025, at 4:30 in the afternoon.",
+          "transcribed": "The meeting is on March 3, 2025, at 4.30 in the afternoon.",
+          "ref_norm": "the meeting is on march 3rd 2025 at 4 30 in the afternoon",
+          "hyp_norm": "the meeting is on march 3 2025 at 4.30 in the afternoon"
+        },
+        {
+          "file": "s06_seed0.wav",
+          "wer": 0.2308,
+          "wer_fmt": 0.0909,
+          "cer": 0.0625,
+          "expected": "Flight UA 2381 departs from gate 47B at 6:05 a.m.",
+          "transcribed": "Flight UA-2381 departs from date 47B at 6.05 a.m.",
+          "ref_norm": "flight ua 2381 departs from gate 47 b at 6 5 a m",
+          "hyp_norm": "flight ua 2381 departs from date 47 b at 6.05 a m"
+        },
+        {
+          "file": "s08_seed1.wav",
+          "wer": 0.2,
+          "wer_fmt": 0.0,
+          "cer": 0.0286,
+          "expected": "Call me back at 555-0142 after 7 p.m.",
+          "transcribed": "Call me back at 5550142 after 7 p.m.",
+          "ref_norm": "call me back at 555 142 after 7 p m",
+          "hyp_norm": "call me back at 5550142 after 7 p m"
+        }
+      ],
+      "worst5_format_insensitive": [
+        {
+          "file": "s08_seed0.wav",
+          "wer": 0.4,
+          "wer_fmt": 0.125,
+          "cer": 0.1143,
+          "expected": "Call me back at 555-0142 after 7 p.m.",
+          "transcribed": "Call me back at 555-821-42 after 7pm.",
+          "ref_norm": "call me back at 555 142 after 7 p m",
+          "hyp_norm": "call me back at 555 821 42 after 7 pm"
+        },
+        {
+          "file": "s11_seed0.wav",
+          "wer": 0.1,
+          "wer_fmt": 0.1,
+          "cer": 0.0656,
+          "expected": "Siobhan and Joaquin flew from Dublin to Guadalajara last week.",
+          "transcribed": "Siobhan and Malkin flew from Dublin to Guadalajara last week.",
+          "ref_norm": "siobhan and joaquin flew from dublin to guadalajara last week",
+          "hyp_norm": "siobhan and malkin flew from dublin to guadalajara last week"
+        },
+        {
+          "file": "s06_seed0.wav",
+          "wer": 0.2308,
+          "wer_fmt": 0.0909,
+          "cer": 0.0625,
+          "expected": "Flight UA 2381 departs from gate 47B at 6:05 a.m.",
+          "transcribed": "Flight UA-2381 departs from date 47B at 6.05 a.m.",
+          "ref_norm": "flight ua 2381 departs from gate 47 b at 6 5 a m",
+          "hyp_norm": "flight ua 2381 departs from date 47 b at 6.05 a m"
+        },
+        {
+          "file": "s10_seed0.wav",
+          "wer": 0.0909,
+          "wer_fmt": 0.0909,
+          "cer": 0.0137,
+          "expected": "Dr. Priya Raman and Professor Tomasz Kowalski will present the keynote.",
+          "transcribed": "Dr. Priya Rahman and Professor Tomasz Kowalski will present the keynote.",
+          "ref_norm": "doctor priya raman and professor tomasz kowalski will present the keynote",
+          "hyp_norm": "doctor priya rahman and professor tomasz kowalski will present the keynote"
+        },
+        {
+          "file": "s23_seed1.wav",
+          "wer": 0.0833,
+          "wer_fmt": 0.0833,
+          "cer": 0.0462,
+          "expected": "A strong wind knocked over the fence behind the garage last night.",
+          "transcribed": "A strong wind knocked over the fence behind a garage last night.",
+          "ref_norm": "a strong wind knocked over the fence behind the garage last night",
+          "hyp_norm": "a strong wind knocked over the fence behind a garage last night"
+        }
+      ]
+    }
+  },
+  "comparisons": {
+    "w4a16_lmhead_vs_baseline_csv": {
+      "baseline_csv": "results/quality_baseline_clips.csv",
+      "baseline_summary": {
+        "clips": 60,
+        "wer_mean": 0.0287,
+        "wer_median": 0.0,
+        "wer_p90": 0.1025,
+        "clips_wer_gt_20pct": 3,
+        "clips_wer_zero": 49,
+        "cer_mean": 0.0072,
+        "corpus_wer": 0.0269,
+        "not_stopped_clips": 0
+      },
+      "baseline_summary_format_insensitive": {
+        "clips": 60,
+        "wer_mean": 0.0084,
+        "wer_median": 0.0,
+        "wer_p90": 0.0,
+        "clips_wer_gt_20pct": 0,
+        "clips_wer_zero": 55,
+        "cer_mean": 0.0025,
+        "corpus_wer": 0.0068,
+        "not_stopped_clips": 0
+      },
+      "diff_official": {
+        "mean_diff": 0.0024,
+        "ci95": [
+          -0.0053,
+          0.0101
+        ],
+        "sentences_worse": 4,
+        "sentences_better": 2,
+        "sentences_equal": 24
+      },
+      "diff_format_insensitive": {
+        "mean_diff": 0.001,
+        "ci95": [
+          -0.0063,
+          0.0079
+        ],
+        "sentences_worse": 3,
+        "sentences_better": 2,
+        "sentences_equal": 25
+      }
+    }
+  }
+}

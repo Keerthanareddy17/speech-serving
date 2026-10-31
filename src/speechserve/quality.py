@@ -37,7 +37,8 @@ def clip_name(sid: int, seed: int) -> str:
 
 
 # ---- 1. generation -----------------------------------------------------------------------------------
-async def generate(preset: str, out_dir: Path, seeds=DEFAULT_SEEDS, decoder_kind: str = "batched") -> dict:
+async def generate(preset: str, out_dir: Path, seeds=DEFAULT_SEEDS, decoder_kind: str = "batched",
+                   first_wait_frames: int = 4) -> dict:
     import soundfile as sf
     import torch
     import vllm
@@ -49,7 +50,7 @@ async def generate(preset: str, out_dir: Path, seeds=DEFAULT_SEEDS, decoder_kind
     sentences = load_sentences()
     engine = TTSEngine(preset)
     decoder = BatchedChunkDecoder(SNACDecoder()) if decoder_kind == "batched" else SNACDecoder()
-    chunk_cfg = C.ChunkConfig()
+    chunk_cfg = C.ChunkConfig(first_wait_frames=first_wait_frames)
 
     async def synth(text, seed):
         asm, info = FrameAssembler(), {}
@@ -243,5 +244,6 @@ def seed_noise(rows: list[dict], key: str = "wer") -> dict:
             "mean_wer_seed_a": round(float(s0.mean()), 4), "mean_wer_seed_b": round(float(s1.mean()), 4)}
 
 
-def run_generate(preset: str, out_dir: Path, seeds=DEFAULT_SEEDS, decoder_kind: str = "batched") -> dict:
-    return asyncio.run(generate(preset, out_dir, seeds, decoder_kind))
+def run_generate(preset: str, out_dir: Path, seeds=DEFAULT_SEEDS, decoder_kind: str = "batched",
+                 first_wait_frames: int = 4) -> dict:
+    return asyncio.run(generate(preset, out_dir, seeds, decoder_kind, first_wait_frames))
