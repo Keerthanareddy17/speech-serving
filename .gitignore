@@ -15,6 +15,7 @@ venv/
 # Audio: ignore all wavs except small samples in results/samples/
 *.wav
 !results/samples/*.wav
+!results/samples/**/*.wav
 
 # Secrets
 .env
