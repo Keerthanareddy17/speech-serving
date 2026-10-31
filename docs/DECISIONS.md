@@ -382,6 +382,83 @@ every size 2–64, plus 80 and 128.
 - A client disconnect mid-stream: logged as `disconnected`, errors 0, GPU idle within a second
   (request aborted).
 
+## Baseline load test (step 4, 2026-10-31)
+
+### Method
+`scripts/run_loadtest.py` → `src/speechserve/loadtest.py`, against the step 3 server (w4a16_lmhead,
+per-stream SNAC on one worker thread). The client runs in a separate process on the same machine.
+- Each of the N streams opens its own websocket. Even-numbered streams start with the sentence, odd
+  ones with the paragraph, then each alternates.
+- The first request of each stream is **warmup** (not counted). After it, a stream keeps starting
+  **measured** requests until 60 s after the level start, and completes at least 2 measured requests
+  (one of each text).
+- That minimum is a deliberate deviation from a pure fixed duration. At N=64 a single paragraph takes
+  ~3 min, so a 60 s window would have measured only one kind of text.
+- A stream that is done measuring keeps sending unmeasured **fillers** until every stream is done, so
+  every measured request runs with all N streams active. Then all sockets close and the server aborts
+  the fillers.
+- Per request: client TTFA, client RTF, gaps and buffer needed (step 2 definitions), errors, plus the
+  server's `done` timings.
+- Throughput: audio seconds received per wall second, counted from the end of the last warmup to the
+  end of the last measured request (all N streams busy).
+- Server-side state comes from `/metrics`, polled once a second. "SNAC busy" = the SNAC worker's
+  busy-time increase divided by wall time over the same window.
+- Files: `results/baseline_sweep.csv` (one row per request, 415 rows), `results/baseline_sweep_levels.csv`
+  (one row per level), `results/baseline_sweep.json` (levels + metadata + verdict).
+
+### Results
+| N | measured reqs | TTFA p50 / p95 | RTF p50 / p95 | reqs with gaps | buffer needed p95 | throughput (audio s/s) | SNAC busy | SNAC wait/chunk p50 | SNAC ms/call | client CPU |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 1 | 7 | 247 / 249 ms | 0.73 / 0.73 | 0% | 0 ms | 1.38 | 0.25 | 0.1 ms | 15.2 | 0.5% |
+| 2 | 13 | 273 / 293 ms | 0.80 / 0.81 | 0% | 0 ms | 2.50 | 0.45 | 1.1 ms | 15.5 | 0.7% |
+| 4 | 20 | 333 / 381 ms | 0.94 / 0.96 | 15% (3 reqs, one 0.2–2.5 ms gap each) | 1.2 ms | 4.29 | 0.77 | 9.6 ms | 15.5 | 1.0% |
+| 8 | 24 | 458 / 531 ms | 1.42 / 1.46 | 100% | 7.7 s | 5.72 | 1.00 | 103 ms | 15.2 | 1.3% |
+| 16 | 32 | 565 / 712 ms | 2.61 / 2.89 | 100% | 30 s | 6.00 | 1.00 | 207 ms | 14.0 | 1.3% |
+| 32 | 64 | 846 / 1047 ms | 4.66 / 5.89 | 100% | 72 s | 6.61 | 1.00 | 385 ms | 12.6 | 1.4% |
+| 64 | 128 | 1400 / 2155 ms | 9.35 / 11.6 | 100% | 163 s | 6.68 | 1.00 | 789 ms | 12.5 | 1.4% |
+
+- Errors: 0 at every level. vLLM scheduler queue time: 0 ms at every level (p95).
+- GPU memory: 20.16 GiB, flat at every level. vLLM preallocates its KV cache, so this number doesn't
+  change with load.
+- NVML GPU utilisation reads 100% even at N=1 (it only measures whether *any* kernel is running), so
+  it is not a saturation signal here. It falls to 82% at N=64, while vLLM is starved.
+
+**Baseline max streams: 2** (highest N with p95 RTF < 1.0 and no request with a gap).
+- N=4 misses only on gaps: 3 of 20 requests each had one gap of 0.2–2.5 ms, and p95 RTF was 0.96.
+- With a client playback buffer of a few ms, N=4 would pass.
+
+### Where it breaks, and why
+**Per-stream SNAC decoding is the bottleneck, as predicted.** The data confirms the 5–6 stream
+estimate as the hard ceiling. In practice it breaks earlier because the SNAC calls queue.
+- **The ceiling is SNAC calls per second.** All streams share one SNAC worker thread, and each 85 ms
+  frame of audio costs one ~15 ms call. The worker can therefore produce at most about
+  1 / 15 ms × 85 ms ≈ **5.6 s of audio per second**, for all streams together. Realtime for N streams
+  needs N audio s/s, so N ≤ ~5.6.
+- **The data matches that ceiling:**
+  - SNAC busy grows with load (0.25 / 0.45 / 0.77 at N = 1 / 2 / 4) and reaches 1.00 from N=8 on.
+  - Throughput then flattens at 5.7–6.7 audio s/s.
+  - RTF grows roughly as N / 6.6: at N=64 every stream gets ~0.1 s of audio per second.
+- **Why it breaks at 4, not ~5.6:** SNAC is a single queue. At 77% busy, a chunk sometimes waits
+  behind 3 other streams' decodes (SNAC wait p50 rises from 0.1 ms to 9.6 ms), and at a 1.07× realtime
+  margin per stream an occasional wait shows up as a 1–2 ms gap.
+- **Throughput rises from 5.7 to 6.7 past saturation, because SNAC calls get faster**
+  (15.2 → 12.5 ms). Once SNAC is the limit, vLLM finishes its tokens early and leaves the GPU to SNAC,
+  so there is less contention between the two.
+- **TTFA grows with N because the first chunk waits behind every other stream's decode**
+  (~N × 12.5 ms at saturation: 789 ms SNAC wait at N=64). vLLM never queued a request.
+- **It's not the language model.** vLLM queue time is 0 at every level, and GPU utilisation drops as N
+  grows, so vLLM waits on SNAC, not the other way round. Its own limit is still unmeasured, because
+  SNAC saturates first.
+- **It's not the client.** It used at most 1.4% of one CPU core.
+- **What to do next (step 6):** batch SNAC across streams, one call for every stream's pending window,
+  through the `ChunkDecoder` interface. Bigger chunks (fewer calls per audio second) and graphs or
+  compile for SNAC are the other levers.
+
+### Warmup buckets (update to step 3)
+On a later restart the Triton disk cache did not help: compiles happened again at batch 2, 4, 8, 15
+and 30 (plus 80 for the kernel used above 64). Warming every size 2–64 is what makes startup safe;
+15 and 30 also show that more than `S` depends on batch size.
+
 ## Tokenization pipeline
 
 ## Measurement methodology

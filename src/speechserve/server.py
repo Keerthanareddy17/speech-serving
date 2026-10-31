@@ -43,6 +43,7 @@ class State:
     gpu: GPUStats
     chunk_cfg: C.ChunkConfig
     preset: str
+    info: dict
 
 
 S = State()
@@ -116,6 +117,15 @@ async def lifespan(app: FastAPI):
     S.engine = TTSEngine(S.preset)
     S.decoder = SNACDecoder()
     S.gpu = GPUStats()
+    import platform
+
+    import torch
+    import vllm
+    S.info = {"preset": S.preset, "model": S.engine.engine_args["model"], "vllm_version": vllm.__version__,
+              "torch_version": torch.__version__, "python_version": platform.python_version(),
+              "gpu": torch.cuda.get_device_name(0), "engine_args": S.engine.engine_args,
+              "sampling": S.engine.sampling.to_dict(), "chunk": S.chunk_cfg.to_dict(),
+              "decoder": S.decoder.stats()["decoder"]}
     # Warmup: the first request after load is slower and samples differently (step 2), so no user gets it.
     await synthesize(WARMUP_TEXT, C.DEFAULT_VOICE, lambda b: asyncio.sleep(0))
     await warmup_batch_sizes()
@@ -129,7 +139,7 @@ app = FastAPI(lifespan=lifespan)
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "preset": S.preset}
+    return {"status": "ok", **S.info}
 
 
 @app.get("/metrics")
