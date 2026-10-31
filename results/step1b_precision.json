@@ -1,0 +1,146 @@
+{
+  "bf16": {
+    "date": "2026-10-31T05:38:21+00:00",
+    "gpu": "NVIDIA L4",
+    "model": "canopylabs/orpheus-3b-0.1-ft",
+    "vllm_version": "0.32.0",
+    "torch_version": "2.13.0+cu130",
+    "python_version": "3.13.16",
+    "precision": "bf16",
+    "config": {
+      "engine": {
+        "model": "canopylabs/orpheus-3b-0.1-ft",
+        "tokenizer": "canopylabs/orpheus-3b-0.1-pretrained",
+        "dtype": "bfloat16",
+        "max_model_len": 4096,
+        "gpu_memory_utilization": 0.85
+      },
+      "sampling": {
+        "temperature": 0.6,
+        "top_p": 0.8,
+        "repetition_penalty": 1.3,
+        "max_tokens": 1200,
+        "stop_token_ids": [
+          128258
+        ],
+        "seed": 0
+      },
+      "text": "Hi, I'm testing a realtime speech server on a single L4 GPU.",
+      "voice": "tara",
+      "snac_model": "hubertsiuzdak/snac_24khz"
+    },
+    "model_load_s": 44.31,
+    "generation_s": 12.602,
+    "snac_decode_s": 0.697,
+    "generated_tokens": 463,
+    "tokens_per_s": 36.7,
+    "audio_tokens": 462,
+    "finish_reason": "stop",
+    "audio_duration_s": 5.632,
+    "rtf_generation": 2.238,
+    "rtf_total": 2.361,
+    "gpu_mem_used_gib": 18.68,
+    "weights_gib": 6.2,
+    "kv_cache_gib": 11.42,
+    "kv_cache_tokens": 106896,
+    "attention_backend": "FLASH_ATTN",
+    "output_wav": "results/samples/step1b_bf16.wav"
+  },
+  "fp8": {
+    "date": "2026-10-31T05:40:34+00:00",
+    "gpu": "NVIDIA L4",
+    "model": "canopylabs/orpheus-3b-0.1-ft",
+    "vllm_version": "0.32.0",
+    "torch_version": "2.13.0+cu130",
+    "python_version": "3.13.16",
+    "precision": "fp8",
+    "config": {
+      "engine": {
+        "model": "canopylabs/orpheus-3b-0.1-ft",
+        "tokenizer": "canopylabs/orpheus-3b-0.1-pretrained",
+        "dtype": "bfloat16",
+        "max_model_len": 4096,
+        "gpu_memory_utilization": 0.85,
+        "quantization": "fp8"
+      },
+      "sampling": {
+        "temperature": 0.6,
+        "top_p": 0.8,
+        "repetition_penalty": 1.3,
+        "max_tokens": 1200,
+        "stop_token_ids": [
+          128258
+        ],
+        "seed": 0
+      },
+      "text": "Hi, I'm testing a realtime speech server on a single L4 GPU.",
+      "voice": "tara",
+      "snac_model": "hubertsiuzdak/snac_24khz"
+    },
+    "model_load_s": 98.27,
+    "generation_s": 11.014,
+    "snac_decode_s": 0.844,
+    "generated_tokens": 442,
+    "tokens_per_s": 40.1,
+    "audio_tokens": 441,
+    "finish_reason": "stop",
+    "audio_duration_s": 5.376,
+    "rtf_generation": 2.049,
+    "rtf_total": 2.206,
+    "gpu_mem_used_gib": 18.18,
+    "weights_gib": 3.73,
+    "kv_cache_gib": 13.21,
+    "kv_cache_tokens": 123696,
+    "attention_backend": "FLASH_ATTN",
+    "output_wav": "results/samples/step1b_fp8.wav"
+  },
+  "fp8_kv": {
+    "date": "2026-10-31T05:43:29+00:00",
+    "gpu": "NVIDIA L4",
+    "model": "canopylabs/orpheus-3b-0.1-ft",
+    "vllm_version": "0.32.0",
+    "torch_version": "2.13.0+cu130",
+    "python_version": "3.13.16",
+    "precision": "fp8_kv",
+    "config": {
+      "engine": {
+        "model": "canopylabs/orpheus-3b-0.1-ft",
+        "tokenizer": "canopylabs/orpheus-3b-0.1-pretrained",
+        "dtype": "bfloat16",
+        "max_model_len": 4096,
+        "gpu_memory_utilization": 0.85,
+        "quantization": "fp8",
+        "kv_cache_dtype": "fp8"
+      },
+      "sampling": {
+        "temperature": 0.6,
+        "top_p": 0.8,
+        "repetition_penalty": 1.3,
+        "max_tokens": 1200,
+        "stop_token_ids": [
+          128258
+        ],
+        "seed": 0
+      },
+      "text": "Hi, I'm testing a realtime speech server on a single L4 GPU.",
+      "voice": "tara",
+      "snac_model": "hubertsiuzdak/snac_24khz"
+    },
+    "model_load_s": 140.23,
+    "generation_s": 11.212,
+    "snac_decode_s": 0.643,
+    "generated_tokens": 463,
+    "tokens_per_s": 41.3,
+    "audio_tokens": 462,
+    "finish_reason": "stop",
+    "audio_duration_s": 5.632,
+    "rtf_generation": 1.991,
+    "rtf_total": 2.105,
+    "gpu_mem_used_gib": 18.55,
+    "weights_gib": 3.73,
+    "kv_cache_gib": 12.78,
+    "kv_cache_tokens": 239328,
+    "attention_backend": "FLASHINFER",
+    "output_wav": "results/samples/step1b_fp8_kv.wav"
+  }
+}

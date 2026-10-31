@@ -77,6 +77,33 @@ tops out around 45 tok/s. **bf16 Orpheus 3B cannot stream in realtime on one L4.
 measure next, one at a time: FP8 weights (Ada supports FP8; halves bytes per token), and batching
 (throughput rises with concurrency because the weights are read once per step for all streams).
 
+## Precision check (step 1b, 2026-10-31)
+
+`results/step1b_precision.json`, from `scripts/step1_generate.py --precision {bf16,fp8,fp8_kv}`. Same
+sentence and seed as step 1, one fresh process per run, batch size 1.
+
+| precision | tok/s | ms/token | RTF (gen) | weights | KV cache            | attention  | load time |
+|-----------|-------|----------|-----------|---------|---------------------|------------|-----------|
+| bf16      | 36.7  | 27.2     | 2.24      | 6.2 GiB | 11.4 GiB, 107k tok  | FLASH_ATTN | 44 s      |
+| fp8       | 40.1  | 24.9     | 2.05      | 3.73 GiB| 13.2 GiB, 124k tok  | FLASH_ATTN | 98 s      |
+| fp8 + fp8 KV | 41.3 | 24.2  | 1.99      | 3.73 GiB| 12.8 GiB, 239k tok  | FLASHINFER | 140 s     |
+
+- The bf16 rerun matched step 1 exactly (463 tokens, 12.60 s), so the seed is deterministic and the
+  new log capture changed nothing.
+- **fp8 does not reach realtime (~82 tok/s).** Weights shrank 40% but time per token fell only 8%.
+  At ~300 GB/s, the time just to read the weights is ~22 ms (bf16) and ~13 ms (fp8). The remaining
+  time grew from ~5 ms to ~12 ms per token. Hypothesis, **not yet verified with a profiler**: vLLM's
+  fp8 path (dynamic activation quantization plus fp8 GEMM kernels) runs inefficiently at batch size 1
+  on Ada.
+- fp8 weights are 3.73 GiB, not ~3.1, because the tied 156,940 x 3072 embedding / lm_head
+  (~0.9 GiB) stays bf16 and is still read every step.
+- The fp8 KV cache roughly doubles KV capacity (239k vs 124k tokens). That matters for concurrency,
+  not single-stream speed. vLLM switched attention to FLASHINFER for it.
+- Online fp8 quantization adds ~1–1.5 min to model load.
+- Same seed, different weights: fp8 produced a different token sequence (442 tokens, 5.38 s). All
+  three WAVs have sane levels (no clipping, ~60% voiced); quality still needs a listen or a WER check.
+- 4-bit not tried yet, by decision.
+
 ## Tokenization pipeline
 
 ## Measurement methodology
