@@ -1,6 +1,6 @@
 {
   "bf16": {
-    "date": "2026-10-31T05:38:21+00:00",
+    "date": "2026-10-31T06:01:06+00:00",
     "gpu": "NVIDIA L4",
     "model": "canopylabs/orpheus-3b-0.1-ft",
     "vllm_version": "0.32.0",
@@ -29,21 +29,22 @@
       "voice": "tara",
       "snac_model": "hubertsiuzdak/snac_24khz"
     },
-    "model_load_s": 44.31,
-    "generation_s": 12.602,
-    "snac_decode_s": 0.697,
+    "model_load_s": 44.25,
+    "generation_s": 12.604,
+    "snac_decode_s": 0.64,
     "generated_tokens": 463,
     "tokens_per_s": 36.7,
     "audio_tokens": 462,
     "finish_reason": "stop",
     "audio_duration_s": 5.632,
     "rtf_generation": 2.238,
-    "rtf_total": 2.361,
+    "rtf_total": 2.351,
     "gpu_mem_used_gib": 18.68,
     "weights_gib": 6.2,
     "kv_cache_gib": 11.42,
     "kv_cache_tokens": 106896,
     "attention_backend": "FLASH_ATTN",
+    "linear_kernel": null,
     "output_wav": "results/samples/step1b_bf16.wav"
   },
   "fp8": {
@@ -92,7 +93,8 @@
     "kv_cache_gib": 13.21,
     "kv_cache_tokens": 123696,
     "attention_backend": "FLASH_ATTN",
-    "output_wav": "results/samples/step1b_fp8.wav"
+    "output_wav": "results/samples/step1b_fp8.wav",
+    "linear_kernel": "CutlassFP8ScaledMMLinearKernel"
   },
   "fp8_kv": {
     "date": "2026-10-31T05:43:29+00:00",
@@ -141,6 +143,105 @@
     "kv_cache_gib": 12.78,
     "kv_cache_tokens": 239328,
     "attention_backend": "FLASHINFER",
-    "output_wav": "results/samples/step1b_fp8_kv.wav"
+    "output_wav": "results/samples/step1b_fp8_kv.wav",
+    "linear_kernel": "CutlassFP8ScaledMMLinearKernel"
+  },
+  "fp8_marlin": {
+    "date": "2026-10-31T05:53:18+00:00",
+    "gpu": "NVIDIA L4",
+    "model": "canopylabs/orpheus-3b-0.1-ft",
+    "vllm_version": "0.32.0",
+    "torch_version": "2.13.0+cu130",
+    "python_version": "3.13.16",
+    "precision": "fp8_marlin",
+    "config": {
+      "engine": {
+        "model": "canopylabs/orpheus-3b-0.1-ft",
+        "tokenizer": "canopylabs/orpheus-3b-0.1-pretrained",
+        "dtype": "bfloat16",
+        "max_model_len": 4096,
+        "gpu_memory_utilization": 0.85,
+        "quantization": "fp8",
+        "linear_backend": "marlin"
+      },
+      "sampling": {
+        "temperature": 0.6,
+        "top_p": 0.8,
+        "repetition_penalty": 1.3,
+        "max_tokens": 1200,
+        "stop_token_ids": [
+          128258
+        ],
+        "seed": 0
+      },
+      "text": "Hi, I'm testing a realtime speech server on a single L4 GPU.",
+      "voice": "tara",
+      "snac_model": "hubertsiuzdak/snac_24khz"
+    },
+    "model_load_s": 77.96,
+    "generation_s": 9.581,
+    "snac_decode_s": 0.765,
+    "generated_tokens": 414,
+    "tokens_per_s": 43.2,
+    "audio_tokens": 413,
+    "finish_reason": "stop",
+    "audio_duration_s": 5.035,
+    "rtf_generation": 1.903,
+    "rtf_total": 2.055,
+    "gpu_mem_used_gib": 18.21,
+    "weights_gib": 3.58,
+    "kv_cache_gib": 13.34,
+    "kv_cache_tokens": 124912,
+    "attention_backend": "FLASH_ATTN",
+    "linear_kernel": "MarlinFP8ScaledMMLinearKernel",
+    "output_wav": "results/samples/step1b_fp8_marlin.wav"
+  },
+  "w4a16": {
+    "date": "2026-10-31T06:13:47+00:00",
+    "gpu": "NVIDIA L4",
+    "model": "/content/drive/MyDrive/speech-infra/models/orpheus-3b-w4a16",
+    "vllm_version": "0.32.0",
+    "torch_version": "2.13.0+cu130",
+    "python_version": "3.13.16",
+    "precision": "w4a16",
+    "config": {
+      "engine": {
+        "model": "/content/drive/MyDrive/speech-infra/models/orpheus-3b-w4a16",
+        "tokenizer": "canopylabs/orpheus-3b-0.1-pretrained",
+        "dtype": "bfloat16",
+        "max_model_len": 4096,
+        "gpu_memory_utilization": 0.85
+      },
+      "sampling": {
+        "temperature": 0.6,
+        "top_p": 0.8,
+        "repetition_penalty": 1.3,
+        "max_tokens": 1200,
+        "stop_token_ids": [
+          128258
+        ],
+        "seed": 0
+      },
+      "text": "Hi, I'm testing a realtime speech server on a single L4 GPU.",
+      "voice": "tara",
+      "snac_model": "hubertsiuzdak/snac_24khz"
+    },
+    "model_load_s": 70.74,
+    "generation_s": 7.753,
+    "snac_decode_s": 0.834,
+    "generated_tokens": 435,
+    "tokens_per_s": 56.1,
+    "audio_tokens": 434,
+    "finish_reason": "stop",
+    "audio_duration_s": 5.291,
+    "rtf_generation": 1.465,
+    "rtf_total": 1.623,
+    "gpu_mem_used_gib": 18.21,
+    "weights_gib": 2.31,
+    "kv_cache_gib": 14.74,
+    "kv_cache_tokens": 138032,
+    "attention_backend": "FLASH_ATTN",
+    "linear_kernel": "MarlinLinearKernel",
+    "output_wav": "results/samples/step1b_w4a16.wav"
   }
 }

@@ -102,7 +102,71 @@ sentence and seed as step 1, one fresh process per run, batch size 1.
 - Online fp8 quantization adds ~1–1.5 min to model load.
 - Same seed, different weights: fp8 produced a different token sequence (442 tokens, 5.38 s). All
   three WAVs have sane levels (no clipping, ~60% voiced); quality still needs a listen or a WER check.
-- 4-bit not tried yet, by decision.
+## fp8 weight-only via Marlin (step 1c, 2026-10-31)
+
+vLLM 0.32 has no `VLLM_TEST_FORCE_FP8_MARLIN` any more. Its replacement is the engine setting
+`linear_backend="marlin"` (CLI `--linear-backend marlin`), which `--precision fp8_marlin` uses. The
+default fp8 path on the L4 picks `CutlassFP8ScaledMMLinearKernel` (W8A8); with marlin it picks
+`MarlinFP8ScaledMMLinearKernel` (fp8 weights, bf16 activations).
+Result: **43.2 tok/s** (vs 40.1 for CUTLASS fp8). Weight-only helps a little; not enough.
+
+## W4A16 GPTQ (step 1c, 2026-10-31)
+
+### Calibration set: the model's own outputs
+GPTQ rounds weights so that each layer's output stays accurate *for the inputs it sees during
+calibration*. Orpheus spends almost all its steps predicting audio tokens, so calibrating on ordinary
+text would protect the wrong behaviour. `scripts/make_calib.py` uses bf16 vLLM, the step-1 prompt
+format and the step-1 sampling to generate 128 sequences:
+- 64 sentences (`scripts/calib_sentences.txt`, 2–45 words, with questions, numbers, instructions,
+  narrative, technical and support dialogue, and some emotive tags);
+- each spoken by 2 of the 8 voices (each voice 16 times), one seed per sequence;
+- `max_tokens=2048`.
+
+All 128 ended on end-of-speech. That's 56k tokens, 125–890 per sequence (median 411), in 50 s. Saved
+as prompt + generated ids to `/content/drive/MyDrive/speech-infra/calib/orpheus_calib_128.jsonl`
+(+ `manifest.json`).
+
+### Quantization environment: separate venv
+- llm-compressor must not share vLLM's environment. 0.13–0.15 need compressed-tensors >= 0.18, but
+  vllm 0.32 pins `compressed-tensors==0.17.0`. 0.12.0.3 (compressed-tensors 0.17.1, the same format
+  family vLLM reads) pins torch 2.12 / transformers 5.10.
+- So it lives in `/content/venvs/quant` (`scripts/setup_quant_venv.sh`, `requirements-quant.txt`).
+- Two Colab traps:
+  - `python -m venv` fails (no `ensurepip`), so use `uv venv`.
+  - Colab sets `UV_SYSTEM_PYTHON=true`, which makes `uv pip install` write into the **system**
+    python even with `VIRTUAL_ENV` set. That happened once: it downgraded torch, transformers,
+    triton, tokenizers, compressed-tensors and cuda-toolkit under vLLM. It was repaired by
+    reinstalling the exact previous versions with `--no-deps`, and verified with a bf16 rerun that
+    reproduced step 1 exactly. The setup script now clears `UV_SYSTEM_PYTHON`, passes
+    `--python <venv>`, and aborts after a dry run unless uv targets the venv.
+
+### Quantization
+`scripts/quantize_w4a16.py`: `GPTQModifier(targets="Linear", scheme="W4A16", ignore=["lm_head"])`,
+model loaded in bf16, 128 calibration sequences.
+- Saved config: int4, symmetric, group size 128, `pack-quantized`, ignore `[lm_head]`.
+- Embeddings stay bf16 and stay tied to lm_head.
+- Took **559 s** on the L4. Output **2.25 GiB** at
+  `/content/drive/MyDrive/speech-infra/models/orpheus-3b-w4a16/` (Drive, not git).
+- Record: `results/step1c_quantize.json`.
+
+### Result
+vLLM loads it as `CompressedTensorsWNA16` and uses **`MarlinLinearKernel`**. No flags were needed.
+
+| precision  | tok/s | ms/token | RTF (gen) | weights  | KV capacity | linear kernel                  |
+|------------|-------|----------|-----------|----------|-------------|--------------------------------|
+| bf16       | 36.7  | 27.2     | 2.24      | 6.2 GiB  | 107k tok    | (unquantized)                  |
+| fp8        | 40.1  | 24.9     | 2.05      | 3.73 GiB | 124k tok    | CutlassFP8ScaledMMLinearKernel |
+| fp8_marlin | 43.2  | 23.1     | 1.90      | 3.58 GiB | 125k tok    | MarlinFP8ScaledMMLinearKernel  |
+| **w4a16**  | **56.1** | **17.8** | **1.47** | 2.31 GiB | 138k tok | MarlinLinearKernel             |
+
+- **w4a16 is still short of realtime (~82 tok/s needs ≤ 12.2 ms/token).**
+- Of the 2.31 GiB read per step, 0.9 GiB (39%) is now the bf16 tied embedding / lm_head.
+- At ~300 GB/s, reading the weights alone takes ~8.3 ms, so ~9.5 ms per token goes elsewhere.
+  Kernel efficiency at batch size 1, the 157k-wide lm_head and sampling, and per-step overhead are
+  all candidates. Not profiled yet.
+- Different weights, same seed: w4a16 produced a different token sequence (435 tokens, 5.29 s).
+  Levels are sane (no clipping); quality still needs a listen or a WER check.
+- Not tried yet, by decision: quantizing lm_head.
 
 ## Tokenization pipeline
 

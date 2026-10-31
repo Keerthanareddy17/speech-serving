@@ -1,0 +1,64 @@
+Hello there.
+Thanks, that helps a lot.
+Wait, what did you just say?
+Okay, I'll call you back in five minutes.
+Good morning! How did you sleep?
+No, the meeting moved to Thursday at three thirty.
+Can you hear me clearly now?
+Please hold while I transfer your call.
+I can't believe it actually worked <laugh> I was sure it would crash.
+The package should arrive between nine a.m. and noon tomorrow.
+Turn left at the second traffic light, then keep going for about half a mile.
+Your order number is four seven two, nine one eight, three zero five.
+The temperature today will reach seventy eight degrees, with a light breeze from the west.
+<sigh> I really thought we had fixed that bug last week.
+Is this the right line for the train to the airport?
+Let me check that for you. It looks like your account was charged twice, so I've issued a refund.
+She opened the window, and the smell of rain filled the whole room.
+Honestly, the best part of the trip was the tiny bakery on the corner.
+Do you want the red one or the blue one?
+The total comes to forty two dollars and sixteen cents, including tax.
+We measured a median latency of one hundred and twenty milliseconds on a single GPU.
+Remember to save your work before you close the laptop.
+Oh no <gasp> I left my keys inside the car again.
+I'm sorry, I didn't catch your name. Could you spell it for me?
+The museum is open from ten until six, except on Mondays.
+He paused, looked at the map, and admitted that he had no idea where they were.
+Mix two cups of flour with one teaspoon of baking soda and a pinch of salt.
+If the light on the router is blinking orange, unplug it for thirty seconds and plug it back in.
+That's hilarious <chuckle> you should tell that story at dinner.
+Our flight was delayed by three hours, so we spent the evening exploring the terminal.
+The quarterly report shows revenue up eleven percent, driven mainly by new customers in Europe.
+Why does the coffee machine always break on Monday mornings?
+Streaming text to speech means the listener hears the first words before the sentence is finished.
+Please confirm your date of birth and the last four digits of your phone number.
+<yawn> Sorry, it was a very long night.
+The library has thousands of old maps, some of them more than two hundred years old.
+I think we should leave early, because the traffic downtown gets terrible after five.
+Thank you for calling. Your feedback helps us improve our service.
+Quantizing a model reduces the number of bits used to store each weight.
+Can we reschedule for next Tuesday, maybe around lunchtime?
+The kids built a fort out of blankets and refused to come out for dinner.
+Warning: the battery is below ten percent. Please connect your charger.
+I'd like a large coffee with oat milk, and a blueberry muffin, please.
+When the sun finally came out, the whole valley turned bright green.
+He said yes. Just like that, after three years of asking.
+Step one, open the settings menu. Step two, select network. Step three, choose your Wi-Fi.
+<cough> Excuse me. As I was saying, the results look very promising.
+It's not perfect, but it's a lot better than what we had before.
+Welcome back! You have three new messages and one missed call.
+The concert sold out in under four minutes, which surprised even the band.
+Could you speak a little more slowly? I'm writing all of this down.
+Our new policy takes effect on the first of March and applies to all employees.
+The cat knocked a glass off the table, looked at me, and walked away.
+After careful review, the committee decided to postpone the vote until more data is available.
+Ugh <groan> the printer is jammed again, and the deadline is in ten minutes.
+Imagine a city where every street has trees, quiet electric buses, and wide sidewalks for walking.
+Make sure the water is boiling before you add the pasta, then stir it every couple of minutes.
+I've been learning to play the guitar, and my fingers still hurt every evening.
+This is a test of a realtime speech server running on a single graphics card.
+Good night, and thank you for listening.
+The old lighthouse had stood on the cliff for over a century, guiding fishing boats home through storms, fog, and the long dark winters of the northern coast.
+If you are calling about an existing order, press one. For billing questions, press two. To speak with a representative, please stay on the line and someone will be with you shortly.
+We started the project with a simple question: how many people can a single graphics card serve in real time, and what does it cost when the answer isn't enough?
+When I was a child, my grandmother told me stories every night, and even now I can still hear her voice describing the village by the river where she grew up.

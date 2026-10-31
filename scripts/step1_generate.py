@@ -70,6 +70,10 @@ PRECISIONS = {
     "bf16": {},
     "fp8": {"quantization": "fp8"},                            # online fp8 weights, KV cache stays bf16
     "fp8_kv": {"quantization": "fp8", "kv_cache_dtype": "fp8"},  # plus fp8 KV cache
+    # fp8 weights run weight-only through Marlin (activations stay bf16), instead of CUTLASS W8A8.
+    "fp8_marlin": {"quantization": "fp8", "linear_backend": "marlin"},
+    # GPTQ 4-bit weights, group size 128, made by scripts/quantize_w4a16.py (lives on Drive, not git).
+    "w4a16": {"model": "/content/drive/MyDrive/speech-infra/models/orpheus-3b-w4a16"},
 }
 # Sampling defaults from engine_class.py `generate_tokens_sync` (with the corrected stop token).
 SAMPLING = dict(
@@ -86,6 +90,8 @@ ENGINE_LOG_METRICS = {
     "kv_cache_gib": (r"Available KV cache memory: ([\d.]+) GiB", float),
     "kv_cache_tokens": (r"GPU KV cache size: ([\d,]+) tokens", lambda s: int(s.replace(",", ""))),
     "attention_backend": (r"Using (\w+) attention backend", str),
+    # Matmul kernel for the quantized linear layers; None for plain bf16 (no quantized kernel selected).
+    "linear_kernel": (r"(?:Selected|Using) (\w+Kernel) for", str),
 }
 
 
@@ -202,7 +208,7 @@ def main():
     result = {
         "date": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "gpu": torch.cuda.get_device_name(0),
-        "model": MODEL,
+        "model": engine_args["model"],
         "vllm_version": vllm.__version__,
         "torch_version": torch.__version__,
         "python_version": platform.python_version(),
@@ -241,7 +247,7 @@ def main():
           "  [<1 = faster than realtime]")
     print(f"GPU memory        : {gpu_used} GiB used on device; weights {engine_stats['weights_gib']} GiB, "
           f"KV cache {engine_stats['kv_cache_gib']} GiB = {engine_stats['kv_cache_tokens']} tokens; "
-          f"attention {engine_stats['attention_backend']}")
+          f"attention {engine_stats['attention_backend']}; linear {engine_stats['linear_kernel']}")
     print(f"saved             : {out_wav}  +  {out_json}")
 
 

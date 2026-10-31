@@ -1,0 +1,4 @@
+# Quantization tools. Install ONLY into the separate venv via scripts/setup_quant_venv.sh, never into
+# vLLM's environment: llmcompressor 0.12.0.3 pulls torch 2.12 / transformers 5.10, which break vllm 0.32.
+# 0.12.0.x is the release on compressed-tensors 0.17, the checkpoint format vllm 0.32 reads (==0.17.0).
+llmcompressor==0.12.0.3
