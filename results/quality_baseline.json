@@ -1,0 +1,613 @@
+{
+  "date": "2026-10-31T09:09:48+00:00",
+  "gpu": "NVIDIA L4",
+  "vllm_version": "0.32.0",
+  "torch_version": "2.13.0+cu130",
+  "models": {
+    "bf16": "canopylabs/orpheus-3b-0.1-ft",
+    "w4a16": "/content/drive/MyDrive/speech-infra/models/orpheus-3b-w4a16",
+    "w4a16_lmhead": "/content/drive/MyDrive/speech-infra/models/orpheus-3b-w4a16-lmhead"
+  },
+  "config": {
+    "sentences_file": "src/speechserve/quality_sentences.txt",
+    "n_sentences": 30,
+    "seeds": [
+      0,
+      1
+    ],
+    "voice": "tara",
+    "clips_dir": "/content/drive/MyDrive/speech-infra/quality/baseline",
+    "normalizer": "Whisper EnglishTextNormalizer (transformers WhisperTokenizer.normalize)",
+    "format_insensitive": "supplementary: also ignores number formatting (quality.make_format_insensitive)",
+    "metrics": "jiwer wer/cer per clip on normalised text; corpus_wer = total errors / total words",
+    "bootstrap": "paired over sentences (mean of seeds), 10000 resamples, 95% percentile CI",
+    "generation": {
+      "bf16": {
+        "date": "2026-10-31T08:56:31Z",
+        "gpu": "NVIDIA L4",
+        "model": "canopylabs/orpheus-3b-0.1-ft",
+        "vllm_version": "0.32.0",
+        "torch_version": "2.13.0+cu130",
+        "engine": {
+          "tokenizer": "canopylabs/orpheus-3b-0.1-pretrained",
+          "dtype": "bfloat16",
+          "max_model_len": 4096,
+          "gpu_memory_utilization": 0.85,
+          "model": "canopylabs/orpheus-3b-0.1-ft"
+        },
+        "sampling": {
+          "temperature": 0.6,
+          "top_p": 0.8,
+          "repetition_penalty": 1.3,
+          "max_tokens": 3000,
+          "stop_token_ids": [
+            128258
+          ],
+          "seed": 0
+        },
+        "chunk": {
+          "first_chunk_frames": 1,
+          "chunk_frames": 1,
+          "left_context": 1,
+          "right_context": 2,
+          "skip_first_frame": true,
+          "flush_tail": true
+        },
+        "voice": "tara",
+        "seeds": [
+          0,
+          1
+        ],
+        "path": "TTSEngine.stream -> codec.stream_audio (per-stream SNAC)"
+      },
+      "whisper": {
+        "whisper_model": "large-v3",
+        "faster_whisper_version": "1.2.1",
+        "compute_type": "float16",
+        "args": {
+          "language": "en",
+          "beam_size": 5,
+          "condition_on_previous_text": false
+        },
+        "seconds": 25.9
+      },
+      "w4a16": {
+        "date": "2026-10-31T09:02:11Z",
+        "gpu": "NVIDIA L4",
+        "model": "/content/drive/MyDrive/speech-infra/models/orpheus-3b-w4a16",
+        "vllm_version": "0.32.0",
+        "torch_version": "2.13.0+cu130",
+        "engine": {
+          "tokenizer": "canopylabs/orpheus-3b-0.1-pretrained",
+          "dtype": "bfloat16",
+          "max_model_len": 4096,
+          "gpu_memory_utilization": 0.85,
+          "model": "/content/drive/MyDrive/speech-infra/models/orpheus-3b-w4a16"
+        },
+        "sampling": {
+          "temperature": 0.6,
+          "top_p": 0.8,
+          "repetition_penalty": 1.3,
+          "max_tokens": 3000,
+          "stop_token_ids": [
+            128258
+          ],
+          "seed": 0
+        },
+        "chunk": {
+          "first_chunk_frames": 1,
+          "chunk_frames": 1,
+          "left_context": 1,
+          "right_context": 2,
+          "skip_first_frame": true,
+          "flush_tail": true
+        },
+        "voice": "tara",
+        "seeds": [
+          0,
+          1
+        ],
+        "path": "TTSEngine.stream -> codec.stream_audio (per-stream SNAC)"
+      },
+      "w4a16_lmhead": {
+        "date": "2026-10-31T09:06:48Z",
+        "gpu": "NVIDIA L4",
+        "model": "/content/drive/MyDrive/speech-infra/models/orpheus-3b-w4a16-lmhead",
+        "vllm_version": "0.32.0",
+        "torch_version": "2.13.0+cu130",
+        "engine": {
+          "tokenizer": "canopylabs/orpheus-3b-0.1-pretrained",
+          "dtype": "bfloat16",
+          "max_model_len": 4096,
+          "gpu_memory_utilization": 0.85,
+          "model": "/content/drive/MyDrive/speech-infra/models/orpheus-3b-w4a16-lmhead"
+        },
+        "sampling": {
+          "temperature": 0.6,
+          "top_p": 0.8,
+          "repetition_penalty": 1.3,
+          "max_tokens": 3000,
+          "stop_token_ids": [
+            128258
+          ],
+          "seed": 0
+        },
+        "chunk": {
+          "first_chunk_frames": 1,
+          "chunk_frames": 1,
+          "left_context": 1,
+          "right_context": 2,
+          "skip_first_frame": true,
+          "flush_tail": true
+        },
+        "voice": "tara",
+        "seeds": [
+          0,
+          1
+        ],
+        "path": "TTSEngine.stream -> codec.stream_audio (per-stream SNAC)"
+      }
+    }
+  },
+  "per_config": {
+    "bf16": {
+      "model": "canopylabs/orpheus-3b-0.1-ft",
+      "summary": {
+        "clips": 60,
+        "wer_mean": 0.0247,
+        "wer_median": 0.0,
+        "wer_p90": 0.1,
+        "clips_wer_gt_20pct": 2,
+        "clips_wer_zero": 48,
+        "cer_mean": 0.0087,
+        "corpus_wer": 0.0255,
+        "not_stopped_clips": 0
+      },
+      "summary_format_insensitive": {
+        "clips": 60,
+        "wer_mean": 0.0159,
+        "wer_median": 0.0,
+        "wer_p90": 0.0646,
+        "clips_wer_gt_20pct": 1,
+        "clips_wer_zero": 53,
+        "cer_mean": 0.005,
+        "corpus_wer": 0.0137,
+        "not_stopped_clips": 0
+      },
+      "seed_noise": {
+        "mean_abs_seed_diff_per_sentence": 0.0172,
+        "mean_wer_seed_a": 0.0236,
+        "mean_wer_seed_b": 0.0259
+      },
+      "seed_noise_format_insensitive": {
+        "mean_abs_seed_diff_per_sentence": 0.0234,
+        "mean_wer_seed_a": 0.009,
+        "mean_wer_seed_b": 0.0227
+      },
+      "worst5": [
+        {
+          "file": "s04_seed0.wav",
+          "wer": 0.2308,
+          "wer_fmt": 0.0,
+          "cer": 0.0526,
+          "expected": "The meeting is on March 3rd, 2025, at 4:30 in the afternoon.",
+          "transcribed": "The meeting is on March 3, 2025, at 4.30 in the afternoon.",
+          "ref_norm": "the meeting is on march 3rd 2025 at 4 30 in the afternoon",
+          "hyp_norm": "the meeting is on march 3 2025 at 4.30 in the afternoon"
+        },
+        {
+          "file": "s06_seed1.wav",
+          "wer": 0.2308,
+          "wer_fmt": 0.0909,
+          "cer": 0.0625,
+          "expected": "Flight UA 2381 departs from gate 47B at 6:05 a.m.",
+          "transcribed": "Flight UA2381 departs from gate 47D at 6.05 a.m.",
+          "ref_norm": "flight ua 2381 departs from gate 47 b at 6 5 a m",
+          "hyp_norm": "flight ua 2381 departs from gate 47 d at 6.05 a m"
+        },
+        {
+          "file": "s04_seed1.wav",
+          "wer": 0.1538,
+          "wer_fmt": 0.0,
+          "cer": 0.0175,
+          "expected": "The meeting is on March 3rd, 2025, at 4:30 in the afternoon.",
+          "transcribed": "The meeting is on March 3rd, 2025, at 4.30 in the afternoon.",
+          "ref_norm": "the meeting is on march 3rd 2025 at 4 30 in the afternoon",
+          "hyp_norm": "the meeting is on march 3rd 2025 at 4.30 in the afternoon"
+        },
+        {
+          "file": "s06_seed0.wav",
+          "wer": 0.1538,
+          "wer_fmt": 0.0,
+          "cer": 0.0417,
+          "expected": "Flight UA 2381 departs from gate 47B at 6:05 a.m.",
+          "transcribed": "Flight UA2381 departs from gate 47B at 6.05 a.m.",
+          "ref_norm": "flight ua 2381 departs from gate 47 b at 6 5 a m",
+          "hyp_norm": "flight ua 2381 departs from gate 47 b at 6.05 a m"
+        },
+        {
+          "file": "s29_seed1.wav",
+          "wer": 0.125,
+          "wer_fmt": 0.125,
+          "cer": 0.0227,
+          "expected": "Peter Piper picked a peck of pickled peppers.",
+          "transcribed": "Peter Piper picked a pack of pickled peppers.",
+          "ref_norm": "peter piper picked a peck of pickled peppers",
+          "hyp_norm": "peter piper picked a pack of pickled peppers"
+        }
+      ],
+      "worst5_format_insensitive": [
+        {
+          "file": "s08_seed1.wav",
+          "wer": 0.1,
+          "wer_fmt": 0.375,
+          "cer": 0.0571,
+          "expected": "Call me back at 555-0142 after 7 p.m.",
+          "transcribed": "Call me back at 555-A142 after 7 p.m.",
+          "ref_norm": "call me back at 555 142 after 7 p m",
+          "hyp_norm": "call me back at 555 a 142 after 7 p m"
+        },
+        {
+          "file": "s08_seed0.wav",
+          "wer": 0.1,
+          "wer_fmt": 0.125,
+          "cer": 0.0571,
+          "expected": "Call me back at 555-0142 after 7 p.m.",
+          "transcribed": "Call me back at 555-80142 after 7 p.m.",
+          "ref_norm": "call me back at 555 142 after 7 p m",
+          "hyp_norm": "call me back at 555 80142 after 7 p m"
+        },
+        {
+          "file": "s29_seed1.wav",
+          "wer": 0.125,
+          "wer_fmt": 0.125,
+          "cer": 0.0227,
+          "expected": "Peter Piper picked a peck of pickled peppers.",
+          "transcribed": "Peter Piper picked a pack of pickled peppers.",
+          "ref_norm": "peter piper picked a peck of pickled peppers",
+          "hyp_norm": "peter piper picked a pack of pickled peppers"
+        },
+        {
+          "file": "s06_seed1.wav",
+          "wer": 0.2308,
+          "wer_fmt": 0.0909,
+          "cer": 0.0625,
+          "expected": "Flight UA 2381 departs from gate 47B at 6:05 a.m.",
+          "transcribed": "Flight UA2381 departs from gate 47D at 6.05 a.m.",
+          "ref_norm": "flight ua 2381 departs from gate 47 b at 6 5 a m",
+          "hyp_norm": "flight ua 2381 departs from gate 47 d at 6.05 a m"
+        },
+        {
+          "file": "s10_seed1.wav",
+          "wer": 0.0909,
+          "wer_fmt": 0.0909,
+          "cer": 0.0274,
+          "expected": "Dr. Priya Raman and Professor Tomasz Kowalski will present the keynote.",
+          "transcribed": "Dr. Priya Raman and Professor Thomas Kowalski will present the keynote.",
+          "ref_norm": "doctor priya raman and professor tomasz kowalski will present the keynote",
+          "hyp_norm": "doctor priya raman and professor thomas kowalski will present the keynote"
+        }
+      ]
+    },
+    "w4a16": {
+      "model": "/content/drive/MyDrive/speech-infra/models/orpheus-3b-w4a16",
+      "summary": {
+        "clips": 60,
+        "wer_mean": 0.0422,
+        "wer_median": 0.0,
+        "wer_p90": 0.1538,
+        "clips_wer_gt_20pct": 5,
+        "clips_wer_zero": 44,
+        "cer_mean": 0.0104,
+        "corpus_wer": 0.039,
+        "not_stopped_clips": 0
+      },
+      "summary_format_insensitive": {
+        "clips": 60,
+        "wer_mean": 0.0135,
+        "wer_median": 0.0,
+        "wer_p90": 0.0412,
+        "clips_wer_gt_20pct": 1,
+        "clips_wer_zero": 52,
+        "cer_mean": 0.0042,
+        "corpus_wer": 0.0123,
+        "not_stopped_clips": 0
+      },
+      "seed_noise": {
+        "mean_abs_seed_diff_per_sentence": 0.0102,
+        "mean_wer_seed_a": 0.0473,
+        "mean_wer_seed_b": 0.0371
+      },
+      "seed_noise_format_insensitive": {
+        "mean_abs_seed_diff_per_sentence": 0.0102,
+        "mean_wer_seed_a": 0.0186,
+        "mean_wer_seed_b": 0.0084
+      },
+      "worst5": [
+        {
+          "file": "s08_seed0.wav",
+          "wer": 0.4,
+          "wer_fmt": 0.0,
+          "cer": 0.0571,
+          "expected": "Call me back at 555-0142 after 7 p.m.",
+          "transcribed": "Call me back at 5550142 after 7pm.",
+          "ref_norm": "call me back at 555 142 after 7 p m",
+          "hyp_norm": "call me back at 5550142 after 7 pm"
+        },
+        {
+          "file": "s08_seed1.wav",
+          "wer": 0.4,
+          "wer_fmt": 0.0,
+          "cer": 0.0571,
+          "expected": "Call me back at 555-0142 after 7 p.m.",
+          "transcribed": "Call me back at 5550142 after 7pm.",
+          "ref_norm": "call me back at 555 142 after 7 p m",
+          "hyp_norm": "call me back at 5550142 after 7 pm"
+        },
+        {
+          "file": "s29_seed0.wav",
+          "wer": 0.25,
+          "wer_fmt": 0.25,
+          "cer": 0.0682,
+          "expected": "Peter Piper picked a peck of pickled peppers.",
+          "transcribed": "Peter Piper cacked a pack of pickled peppers.",
+          "ref_norm": "peter piper picked a peck of pickled peppers",
+          "hyp_norm": "peter piper cacked a pack of pickled peppers"
+        },
+        {
+          "file": "s04_seed0.wav",
+          "wer": 0.2308,
+          "wer_fmt": 0.0,
+          "cer": 0.0526,
+          "expected": "The meeting is on March 3rd, 2025, at 4:30 in the afternoon.",
+          "transcribed": "The meeting is on March 3, 2025, at 4.30 in the afternoon.",
+          "ref_norm": "the meeting is on march 3rd 2025 at 4 30 in the afternoon",
+          "hyp_norm": "the meeting is on march 3 2025 at 4.30 in the afternoon"
+        },
+        {
+          "file": "s04_seed1.wav",
+          "wer": 0.2308,
+          "wer_fmt": 0.0,
+          "cer": 0.0526,
+          "expected": "The meeting is on March 3rd, 2025, at 4:30 in the afternoon.",
+          "transcribed": "The meeting is on March 3, 2025, at 4.30 in the afternoon.",
+          "ref_norm": "the meeting is on march 3rd 2025 at 4 30 in the afternoon",
+          "hyp_norm": "the meeting is on march 3 2025 at 4.30 in the afternoon"
+        }
+      ],
+      "worst5_format_insensitive": [
+        {
+          "file": "s29_seed0.wav",
+          "wer": 0.25,
+          "wer_fmt": 0.25,
+          "cer": 0.0682,
+          "expected": "Peter Piper picked a peck of pickled peppers.",
+          "transcribed": "Peter Piper cacked a pack of pickled peppers.",
+          "ref_norm": "peter piper picked a peck of pickled peppers",
+          "hyp_norm": "peter piper cacked a pack of pickled peppers"
+        },
+        {
+          "file": "s29_seed1.wav",
+          "wer": 0.125,
+          "wer_fmt": 0.125,
+          "cer": 0.0227,
+          "expected": "Peter Piper picked a peck of pickled peppers.",
+          "transcribed": "Peter Piper picked a pack of pickled peppers.",
+          "ref_norm": "peter piper picked a peck of pickled peppers",
+          "hyp_norm": "peter piper picked a pack of pickled peppers"
+        },
+        {
+          "file": "s12_seed0.wav",
+          "wer": 0.0909,
+          "wer_fmt": 0.0909,
+          "cer": 0.0154,
+          "expected": "Please forward the invoice to Mr. Nakamura in the Osaka office.",
+          "transcribed": "Please forward the invoice to Mr. Makamura in the Osaka office.",
+          "ref_norm": "please forward the invoice to mister nakamura in the osaka office",
+          "hyp_norm": "please forward the invoice to mister makamura in the osaka office"
+        },
+        {
+          "file": "s26_seed0.wav",
+          "wer": 0.0909,
+          "wer_fmt": 0.0909,
+          "cer": 0.0312,
+          "expected": "Install PyTorch with CUDA support, then verify it with nvidia-smi.",
+          "transcribed": "Install PyTorch with CUDA support, then verify it with NVIDIA SMILE.",
+          "ref_norm": "install pytorch with cuda support then verify it with nvidia smi",
+          "hyp_norm": "install pytorch with cuda support then verify it with nvidia smile"
+        },
+        {
+          "file": "s26_seed1.wav",
+          "wer": 0.0909,
+          "wer_fmt": 0.0909,
+          "cer": 0.0312,
+          "expected": "Install PyTorch with CUDA support, then verify it with nvidia-smi.",
+          "transcribed": "Install PyTorch with CUDA support, then verify it with NVIDIA SMILE.",
+          "ref_norm": "install pytorch with cuda support then verify it with nvidia smi",
+          "hyp_norm": "install pytorch with cuda support then verify it with nvidia smile"
+        }
+      ]
+    },
+    "w4a16_lmhead": {
+      "model": "/content/drive/MyDrive/speech-infra/models/orpheus-3b-w4a16-lmhead",
+      "summary": {
+        "clips": 60,
+        "wer_mean": 0.0287,
+        "wer_median": 0.0,
+        "wer_p90": 0.1025,
+        "clips_wer_gt_20pct": 3,
+        "clips_wer_zero": 49,
+        "cer_mean": 0.0072,
+        "corpus_wer": 0.0269,
+        "not_stopped_clips": 0
+      },
+      "summary_format_insensitive": {
+        "clips": 60,
+        "wer_mean": 0.0084,
+        "wer_median": 0.0,
+        "wer_p90": 0.0,
+        "clips_wer_gt_20pct": 0,
+        "clips_wer_zero": 55,
+        "cer_mean": 0.0025,
+        "corpus_wer": 0.0068,
+        "not_stopped_clips": 0
+      },
+      "seed_noise": {
+        "mean_abs_seed_diff_per_sentence": 0.0252,
+        "mean_wer_seed_a": 0.0264,
+        "mean_wer_seed_b": 0.0311
+      },
+      "seed_noise_format_insensitive": {
+        "mean_abs_seed_diff_per_sentence": 0.0168,
+        "mean_wer_seed_a": 0.0144,
+        "mean_wer_seed_b": 0.0024
+      },
+      "worst5": [
+        {
+          "file": "s08_seed1.wav",
+          "wer": 0.4,
+          "wer_fmt": 0.0,
+          "cer": 0.0571,
+          "expected": "Call me back at 555-0142 after 7 p.m.",
+          "transcribed": "Call me back at 5550142 after 7pm.",
+          "ref_norm": "call me back at 555 142 after 7 p m",
+          "hyp_norm": "call me back at 5550142 after 7 pm"
+        },
+        {
+          "file": "s04_seed0.wav",
+          "wer": 0.2308,
+          "wer_fmt": 0.0,
+          "cer": 0.0526,
+          "expected": "The meeting is on March 3rd, 2025, at 4:30 in the afternoon.",
+          "transcribed": "The meeting is on March 3, 2025, at 4.30 in the afternoon.",
+          "ref_norm": "the meeting is on march 3rd 2025 at 4 30 in the afternoon",
+          "hyp_norm": "the meeting is on march 3 2025 at 4.30 in the afternoon"
+        },
+        {
+          "file": "s04_seed1.wav",
+          "wer": 0.2308,
+          "wer_fmt": 0.0,
+          "cer": 0.0526,
+          "expected": "The meeting is on March 3rd, 2025, at 4:30 in the afternoon.",
+          "transcribed": "The meeting is on March 3, 2025, at 4.30 in the afternoon.",
+          "ref_norm": "the meeting is on march 3rd 2025 at 4 30 in the afternoon",
+          "hyp_norm": "the meeting is on march 3 2025 at 4.30 in the afternoon"
+        },
+        {
+          "file": "s06_seed0.wav",
+          "wer": 0.1538,
+          "wer_fmt": 0.0,
+          "cer": 0.0417,
+          "expected": "Flight UA 2381 departs from gate 47B at 6:05 a.m.",
+          "transcribed": "Flight UA-2381 departs from gate 47B at 6.05 a.m.",
+          "ref_norm": "flight ua 2381 departs from gate 47 b at 6 5 a m",
+          "hyp_norm": "flight ua 2381 departs from gate 47 b at 6.05 a m"
+        },
+        {
+          "file": "s06_seed1.wav",
+          "wer": 0.1538,
+          "wer_fmt": 0.0,
+          "cer": 0.0417,
+          "expected": "Flight UA 2381 departs from gate 47B at 6:05 a.m.",
+          "transcribed": "Flight UA2381 departs from gate 47B at 6.05 a.m.",
+          "ref_norm": "flight ua 2381 departs from gate 47 b at 6 5 a m",
+          "hyp_norm": "flight ua 2381 departs from gate 47 b at 6.05 a m"
+        }
+      ],
+      "worst5_format_insensitive": [
+        {
+          "file": "s08_seed0.wav",
+          "wer": 0.1,
+          "wer_fmt": 0.125,
+          "cer": 0.0571,
+          "expected": "Call me back at 555-0142 after 7 p.m.",
+          "transcribed": "Call me back at 555-82142 after 7 p.m.",
+          "ref_norm": "call me back at 555 142 after 7 p m",
+          "hyp_norm": "call me back at 555 82142 after 7 p m"
+        },
+        {
+          "file": "s29_seed0.wav",
+          "wer": 0.125,
+          "wer_fmt": 0.125,
+          "cer": 0.0227,
+          "expected": "Peter Piper picked a peck of pickled peppers.",
+          "transcribed": "Peter Piper picked a pack of pickled peppers.",
+          "ref_norm": "peter piper picked a peck of pickled peppers",
+          "hyp_norm": "peter piper picked a pack of pickled peppers"
+        },
+        {
+          "file": "s10_seed0.wav",
+          "wer": 0.0909,
+          "wer_fmt": 0.0909,
+          "cer": 0.0137,
+          "expected": "Dr. Priya Raman and Professor Tomasz Kowalski will present the keynote.",
+          "transcribed": "Dr. Priya Rahman and Professor Tomasz Kowalski will present the keynote.",
+          "ref_norm": "doctor priya raman and professor tomasz kowalski will present the keynote",
+          "hyp_norm": "doctor priya rahman and professor tomasz kowalski will present the keynote"
+        },
+        {
+          "file": "s26_seed0.wav",
+          "wer": 0.0909,
+          "wer_fmt": 0.0909,
+          "cer": 0.0312,
+          "expected": "Install PyTorch with CUDA support, then verify it with nvidia-smi.",
+          "transcribed": "Install PyTorch with Kruda support, then verify it with NVIDIA SMI.",
+          "ref_norm": "install pytorch with cuda support then verify it with nvidia smi",
+          "hyp_norm": "install pytorch with kruda support then verify it with nvidia smi"
+        },
+        {
+          "file": "s28_seed1.wav",
+          "wer": 0.0714,
+          "wer_fmt": 0.0714,
+          "cer": 0.0247,
+          "expected": "She sells seashells by the seashore, and the shells she sells are surely seashells.",
+          "transcribed": "She sells seashells by the seashore, and the shells she sells are shorely seashells.",
+          "ref_norm": "she sells seashells by the seashore and the shells she sells are surely seashells",
+          "hyp_norm": "she sells seashells by the seashore and the shells she sells are shorely seashells"
+        }
+      ]
+    }
+  },
+  "comparisons": {
+    "w4a16_minus_bf16": {
+      "mean_diff": 0.0175,
+      "ci95": [
+        -0.0014,
+        0.043
+      ],
+      "sentences_worse": 7,
+      "sentences_better": 4,
+      "sentences_equal": 19
+    },
+    "w4a16_minus_bf16_format_insensitive": {
+      "mean_diff": -0.0024,
+      "ci95": [
+        -0.0249,
+        0.016
+      ],
+      "sentences_worse": 5,
+      "sentences_better": 5,
+      "sentences_equal": 20
+    },
+    "w4a16_lmhead_minus_bf16": {
+      "mean_diff": 0.004,
+      "ci95": [
+        -0.0062,
+        0.0173
+      ],
+      "sentences_worse": 4,
+      "sentences_better": 4,
+      "sentences_equal": 22
+    },
+    "w4a16_lmhead_minus_bf16_format_insensitive": {
+      "mean_diff": -0.0075,
+      "ci95": [
+        -0.0228,
+        0.003
+      ],
+      "sentences_worse": 2,
+      "sentences_better": 4,
+      "sentences_equal": 24
+    }
+  }
+}

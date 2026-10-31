@@ -459,6 +459,78 @@ On a later restart the Triton disk cache did not help: compiles happened again a
 and 30 (plus 80 for the kernel used above 64). Warming every size 2–64 is what makes startup safe;
 15 and 30 also show that more than `S` depends on batch size.
 
+## Quality baseline (step 5, 2026-10-31)
+
+### Harness
+`scripts/run_quality.py` → `src/speechserve/quality.py`.
+- **Sentences:** `src/speechserve/quality_sentences.txt`, 30 fixed sentences: short, numbers/dates/
+  money/codes, multilingual names, punctuation and questions, long, technical, 2 tongue twisters.
+  None overlap the GPTQ calibration set. **Keep this file fixed.**
+- **Generation:** one process per config, through the server's path (`TTSEngine.stream` →
+  `stream_audio`, per-stream SNAC), voice `tara`, seeds 0 and 1, one clip at a time (batch 1, so
+  reproducible), after a warmup request.
+  - Clips and manifest go to `/content/drive/MyDrive/speech-infra/quality/baseline/<config>/` (~14 MB
+    each).
+  - 3 examples per config (sentences 4, 10, 28; seed 0) go to `results/samples/quality/`.
+- **Transcription:** faster-whisper 1.2.1 `large-v3`, fp16 on GPU, beam 5, English,
+  `condition_on_previous_text=False`, in its own process after generation. Two local workarounds:
+  - PyAV 19 breaks faster-whisper's file reader (`metadata_errors`), so clips are read with soundfile
+    and resampled 24 → 16 kHz with scipy.
+  - CTranslate2 needs CUDA 12 `libcublas.so.12`, which is installed (`nvidia-cublas-cu12`) but not on
+    the loader path, so it is preloaded by full path.
+- **Scoring:** Whisper's English normaliser (`WhisperTokenizer.normalize`) on both sides, then jiwer
+  WER/CER per clip.
+  - That normaliser handles written numbers unevenly: "4:30" → "4 30" but Whisper's "4.30" stays;
+    "6:05" → "6 5"; "3rd" kept on one side, "3" on the other; "555-0142" → "555 142" vs "5550142".
+  - So a supplementary **format-insensitive** WER (`make_format_insensitive`) also removes separators
+    between digits, ordinal suffixes and the "p m"/"pm" split, on both sides.
+- **"Within noise" test:** paired bootstrap over the 30 sentences (mean of the 2 seeds per sentence),
+  10,000 resamples, 95% CI of the mean-WER difference vs bf16. Plus the seed-to-seed WER change within
+  each config.
+- **Outputs:** `results/quality_baseline.json`, `results/quality_baseline_clips.csv` (180 rows).
+
+### Results (60 clips per config, all ended on end-of-speech)
+| config | WER mean | median | p90 | clips > 20% | CER | corpus WER | format-insensitive WER mean / corpus | clips > 20% (fmt) |
+|---|---|---|---|---|---|---|---|---|
+| bf16 | 2.5% | 0 | 10.0% | 2 | 0.9% | 2.5% | 1.6% / 1.4% | 1 |
+| w4a16 | 4.2% | 0 | 15.4% | 5 | 1.0% | 3.9% | 1.3% / 1.2% | 1 |
+| w4a16_lmhead | 2.9% | 0 | 10.2% | 3 | 0.7% | 2.7% | 0.8% / 0.7% | 0 |
+
+Difference vs bf16 (mean WER, 95% CI, paired over sentences):
+
+| | official normaliser | format-insensitive |
+|---|---|---|
+| w4a16 − bf16 | +1.75 pts [−0.14, +4.30] | −0.24 pts [−2.49, +1.60] |
+| w4a16_lmhead − bf16 | +0.40 pts [−0.62, +1.73] | −0.75 pts [−2.28, +0.30] |
+
+- Seed noise (mean absolute WER change between seeds, same sentence): 1.0–2.5 points.
+- Audio lengths match within 3%: 304 / 299 / 308 s total.
+
+### What the errors are
+- **Formatting (all configs alike):** the time, date, ordinal and phone-number cases above. They
+  account for most clips over 20%, and they explain w4a16's higher official WER: its two phone-number
+  clips were transcribed "5550142" (WER 0.40 each), versus "555 80142"-style for the others.
+- **Whisper errors:** "…came back to life **thank you**" (a classic hallucination on trailing
+  silence; bf16) and "Rahman" for "Raman" (a spelling variant; lmhead).
+- **Likely model (pronunciation) slips, 1 word each:**
+  - bf16: gate "47 B" → "D", "the" → "a", "Tomasz" → "Thomas", "peck" → "pack", two odd phone-number
+    readings.
+  - w4a16: "engineers" → "engineer" (both seeds), "nvidia-smi" → "smile" (both seeds), "OAuth" →
+    "olof", "Nakamura" → "Makamura", "picked" → "cacked", "peck" → "pack".
+  - w4a16_lmhead: "CUDA" → "kruda", "surely" → "shorely", "peck" → "pack", one phone-number reading.
+- **Every config** mangles "Peter Piper … peck" at least once. The tongue twister is hard for Orpheus
+  itself, not a quantization effect.
+
+### Verdict
+**w4a16_lmhead is not meaningfully worse than bf16; it stays the default.**
+- Its WER difference is +0.4 points on the official normaliser and −0.75 on the format-insensitive
+  one. Both CIs include 0 and are smaller than the seed-to-seed noise.
+- w4a16 is also within noise. Its official +1.75 points comes from the phone-number formatting case.
+- **Resolution:** this harness only detects differences of about ±2 WER points (30 sentences × 2
+  seeds).
+- **Not measured:** WER measures intelligibility, not naturalness, prosody or codec artefacts. That
+  needs a listen (examples in `results/samples/quality/`) or an automatic MOS model later.
+
 ## Tokenization pipeline
 
 ## Measurement methodology
