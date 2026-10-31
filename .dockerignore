@@ -1,0 +1,12 @@
+.git
+.github
+chat
+results
+notebooks
+docs
+tests
+**/__pycache__
+*.egg-info
+*.wav
+.env
+.env.*

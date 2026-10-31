@@ -9,6 +9,7 @@ Upstream source of truth: canopyai/Orpheus-TTS @ e64661fe6d.
 
 from __future__ import annotations
 
+import os
 from dataclasses import asdict, dataclass, field
 
 # ---- Models ---------------------------------------------------------------------------------------
@@ -16,7 +17,9 @@ BASE_MODEL = "canopylabs/orpheus-3b-0.1-ft"
 # Upstream engine_class.py loads the tokenizer from the pretrained repo (same Llama-3 tokenizer).
 TOKENIZER = "canopylabs/orpheus-3b-0.1-pretrained"
 SNAC_MODEL = "hubertsiuzdak/snac_24khz"
-MODELS_DIR = "/content/drive/MyDrive/speech-infra/models"
+# Directory holding the quantized checkpoints (orpheus-3b-w4a16, orpheus-3b-w4a16-lmhead). Colab default is
+# Drive; Docker and other machines set SPEECHSERVE_MODELS_DIR.
+MODELS_DIR = os.environ.get("SPEECHSERVE_MODELS_DIR", "/content/drive/MyDrive/speech-infra/models")
 
 # Engine flags shared by every preset (DECISIONS.md "Model and serving stack").
 BASE_ENGINE_ARGS = dict(

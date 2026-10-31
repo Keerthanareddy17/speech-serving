@@ -535,7 +535,7 @@ Difference vs bf16 (mean WER, 95% CI, paired over sentences):
 
 ### Micro-benchmark: what batching can buy
 `results/step6a_snac_batch_bench.json` (`scripts/step6a_snac_batch_bench.py`): SNAC alone on the GPU,
-fp32, our 4-frame windows. Each window emits one 85 ms frame.
+fp32, the server's 4-frame windows. Each window emits one 85 ms frame.
 
 | batch | ms per call | ms per window | ceiling (audio s/s) |
 |---|---|---|---|
@@ -844,7 +844,7 @@ near-silence.
 
 ### Prefix caching (record only)
 - On by default in vLLM 0.32 (`enable_prefix_caching=True`, block size 16).
-- Our prompts share only a 5-token voice prefix (`[128259, 128000, "t", "ara", ":"]`), less than one
+- The prompts share only a 5-token voice prefix (`[128259, 128000, "t", "ara", ":"]`), less than one
   block, so different texts get no reuse. Identical repeated prompts do (e.g. the load test's two
   texts); prefill is ~14 ms, so the effect is small.
 
