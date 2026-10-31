@@ -531,6 +531,125 @@ Difference vs bf16 (mean WER, 95% CI, paired over sentences):
 - **Not measured:** WER measures intelligibility, not naturalness, prosody or codec artefacts. That
   needs a listen (examples in `results/samples/quality/`) or an automatic MOS model later.
 
+## Batched SNAC decoding (step 6a, 2026-10-31)
+
+### Micro-benchmark: what batching can buy
+`results/step6a_snac_batch_bench.json` (`scripts/step6a_snac_batch_bench.py`): SNAC alone on the GPU,
+fp32, our 4-frame windows. Each window emits one 85 ms frame.
+
+| batch | ms per call | ms per window | ceiling (audio s/s) |
+|---|---|---|---|
+| 1 | 7.4 | 7.4 | 11.5 |
+| 4 | 7.4 | 1.85 | 46 |
+| 8 | 8.3 | 1.04 | 82 |
+| 16 | 18.8 | 1.18 | 73 |
+| 64 | 92.8 | 1.45 | 59 |
+
+- **Alone, a batch-1 call is 7.4 ms, half the ~15 ms seen in the server.** Sharing the GPU with vLLM
+  already doubled it in step 4.
+- **Up to batch 8 a call costs about the same as batch 1.** GPU time equals wall time, so this isn't CPU
+  launch overhead: the kernels are latency-bound on tiny inputs.
+- **Past batch 8 it becomes compute-bound** at ~1.2–1.45 ms per window. Batching raises SNAC's ceiling
+  by ~5–7×.
+
+### Implementation
+`BatchedChunkDecoder` (`codec.py`), behind the same `ChunkDecoder` interface. Selected with
+`run_server.py --decoder batched`; `per_stream` stays the default.
+- Streams put their pending window in one queue. One worker takes all windows of the same length
+  (oldest first, up to `--snac-max-batch`, default 64), stacks them (no padding), runs **one** SNAC call
+  (`SNACDecoder.decode_many`) and resolves each stream's future with its slice.
+- Windows queue up while a batch decodes, so batches grow with load. `--snac-max-wait-ms` (default 0)
+  optionally holds an idle worker to gather more. Windows from streams that disconnected are skipped.
+- Server startup also runs one SNAC call per batch size 1..max_batch (4 s).
+- `/metrics` adds `snac_windows_total` (so batch mean = Δwindows / Δcalls) and vLLM's own Prometheus
+  counters: generated tokens, inter-token latency, running and waiting requests, KV usage.
+
+### Correctness
+- `tests/test_batched_decoder.py`:
+  - logic on CPU with a fake model: grouping by length, the cap, each stream gets its own slice, and
+    cancelled streams are skipped;
+  - real SNAC with noise off: batched output = per-window output.
+- **TF32 finding:** PyTorch lets cuDNN run fp32 convolutions in TF32 (`cudnn.allow_tf32=True` by
+  default), and cuDNN may pick a different algorithm per batch shape. With TF32 on, batch-64 and
+  single decodes differ by up to 1.65e-3. With TF32 off they are identical (0.0 at batch 64,
+  ≤ 1.7e-6 at batch 16).
+  - Against a float64 CPU decode, TF32 single and TF32 batched are equally far off (8.6e-4).
+    Batching costs no accuracy; TF32 itself is the approximation.
+  - The test disables TF32 and requires ≤ 1e-5. The server keeps PyTorch's default; TF32 on/off is a
+    separate measurement for later.
+- `results/samples/step6a_batched.wav` (paragraph via the batched server): same 1345 tokens and length
+  as `step3_ws.wav`, correlation 0.998 (SNAC noise), no clipping.
+
+### Sweep (same settings as step 4)
+`results/batched_sweep.csv` / `_levels.csv` / `.json`.
+
+| N | TTFA p50 / p95 | RTF p50 / p95 | reqs with gaps | buffer p95 | throughput (audio s/s) | SNAC busy | SNAC batch mean | SNAC ms/call | vLLM ms/token | client CPU |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 1 | 245 / 245 ms | 0.72 / 0.72 | 0% | 0 | 1.39 | 0.25 | 1.0 | 15.2 | 8.7 | 0.5% |
+| 2 | 277 / 286 ms | 0.80 / 0.81 | 0% | 0 | 2.53 | 0.40 | 1.1 | 15.3 | 9.5 | 0.7% |
+| 4 | 315 / 341 ms | 0.89 / 0.93 | 0% | 0 | 4.53 | 0.52 | 1.6 | 15.8 | 10.6 | 1.0% |
+| 8 | 336 / 383 ms | 1.02 / 1.08 | 78% | 1.3 s | 7.86 | 0.42 | 3.7 | 16.8 | 12.2 | 1.6% |
+| 16 | 460 / 603 ms | 1.48 / 1.52 | 100% | 9.2 s | 11.0 | 0.61 | 3.6 | 20.0 | 17.6 | 2.0% |
+| 32 | 746 / 970 ms | 2.27 / 2.44 | 100% | 25 s | 14.4 | 0.61 | 6.2 | 36.2 | 26.8 | 2.2% |
+| 64 | 1352 / 1466 ms | 3.93 / 4.30 | 100% | 55 s | 16.6 | 0.61 | 13.9 | 61.7 | 46.5 | 2.4% |
+
+Errors 0 at every level. GPU memory 21.26 GiB (+1.1 GiB of SNAC batch activations kept by PyTorch's
+caching allocator).
+
+Side by side with the baseline:
+
+| N | baseline RTF p95 / gaps | batched RTF p95 / gaps | baseline throughput | batched throughput |
+|---|---|---|---|---|
+| 1 | 0.73 / 0% | 0.72 / 0% | 1.38 | 1.39 |
+| 2 | 0.81 / 0% | 0.81 / 0% | 2.50 | 2.53 |
+| 4 | 0.96 / 15% | **0.93 / 0%** | 4.29 | 4.53 |
+| 8 | 1.46 / 100% | 1.08 / 78% | 5.72 | 7.86 |
+| 16 | 2.89 / 100% | 1.52 / 100% | 6.00 | 11.0 |
+| 32 | 5.89 / 100% | 2.44 / 100% | 6.61 | 14.4 |
+| 64 | 11.6 / 100% | 4.30 / 100% | 6.68 | 16.6 |
+
+**Max streams: 2 → 4.** N=8 fails at RTF p50 1.02 (5–7 were not tested). The throughput ceiling went
+from 6.7 to 16.6 audio s/s (2.5×), and TTFA at N=64 dropped from 1.40 s to 1.35 s (p95 2.16 → 1.47 s).
+
+### The new bottleneck: SNAC and vLLM sharing one GPU
+`results/step6a_vllm_batch_bench.json` (`scripts/step6a_vllm_batch_bench.py`): vLLM alone (offline
+`LLM`, no SNAC), N requests decoding together.
+
+| N | vLLM alone ms/step | vLLM in server ms/token | ratio |
+|---|---|---|---|
+| 1 | 7.9 | 8.7 | 1.1× |
+| 8 | 9.0 | 12.2 | 1.4× |
+| 16 | 10.2 | 17.6 | 1.7× |
+| 32 | 13.0 | 26.8 | 2.1× |
+| 64 | 19.8 | 46.5 | 2.3× |
+
+- **It's not vLLM's own scaling.** Alone, vLLM stays at or under the 12.2 ms realtime limit up to
+  ~28 streams (10.2 ms at 16, 13.0 at 32).
+- **It's not the decode worker running out of capacity.** SNAC busy plateaus at ~0.61, so the worker
+  is idle ~40% of the time and its queue wait stays ~1 ms.
+- **It's the two sharing the GPU.**
+  - Each slows the other: vLLM's step time grows to 1.4–2.3× its standalone value, and SNAC calls take
+    2–4× longer than alone (61.7 ms in the server for ~14 windows, vs ~17 ms alone).
+  - They run in **different processes** (vLLM's engine core, and the server process with SNAC), so
+    the GPU time-slices between two CUDA contexts instead of overlapping their kernels.
+  - At N=8, vLLM's per-token time lands exactly on the realtime limit, which is why it breaks there.
+- **SNAC does about 4× the necessary work:** each emitted frame decodes a 4-frame window. And with
+  `max_wait_ms=0`, batches stay small at moderate load (mean 3.6 at N=16), where a call costs nearly
+  as much as batch 8.
+- **Next levers, in rough order of expected payoff:**
+  1. larger `chunk_frames` (e.g. 4 frames per window of 7: 1.75× instead of 4× decode work per frame;
+     first chunk unchanged, so TTFA unchanged);
+  2. SNAC in fp16/bf16, or compiled / CUDA-graphed;
+  3. a small `max_wait_ms` to form bigger batches;
+  4. later: SNAC in the same process or CUDA stream as vLLM, or MPS.
+
+  Change one at a time.
+
+### Optimisation log
+`results/optimizations.csv` started: step 4 baseline, step 6a batched SNAC (adopted), and fp8
+(step 1b, tried, not adopted: 18 ms/token, not realtime even at one stream; W4A16 variants are faster
+with no measurable WER loss).
+
 ## Tokenization pipeline
 
 ## Measurement methodology

@@ -1,0 +1,99 @@
+{
+  "date": "2026-10-31T09:17:05+00:00",
+  "gpu": "NVIDIA L4",
+  "model": "hubertsiuzdak/snac_24khz",
+  "vllm_version": "n/a (SNAC alone; no vLLM engine loaded)",
+  "torch_version": "2.13.0+cu130",
+  "python_version": "3.13.16",
+  "config": {
+    "window_frames": 4,
+    "tokens_per_window": 28,
+    "dtype": "float32",
+    "noise": "on (model default)",
+    "warmup_calls": 20,
+    "timed_calls": 100,
+    "call": "numpy codes -> cuda, SNAC.decode, .float().cpu().numpy() (what the server does)",
+    "gpu_alone": true
+  },
+  "results": [
+    {
+      "batch": 1,
+      "call_ms_p50": 7.41,
+      "call_ms_p95": 7.61,
+      "gpu_ms_p50": 7.12,
+      "call_ms_per_window": 7.407,
+      "windows_per_s": 135.0,
+      "audio_s_per_s_ceiling": 11.52,
+      "realtime_streams_ceiling": 11.5
+    },
+    {
+      "batch": 2,
+      "call_ms_p50": 7.54,
+      "call_ms_p95": 9.15,
+      "gpu_ms_p50": 7.47,
+      "call_ms_per_window": 3.772,
+      "windows_per_s": 265.1,
+      "audio_s_per_s_ceiling": 22.62,
+      "realtime_streams_ceiling": 22.6
+    },
+    {
+      "batch": 4,
+      "call_ms_p50": 7.4,
+      "call_ms_p95": 8.2,
+      "gpu_ms_p50": 7.25,
+      "call_ms_per_window": 1.85,
+      "windows_per_s": 540.5,
+      "audio_s_per_s_ceiling": 46.12,
+      "realtime_streams_ceiling": 46.1
+    },
+    {
+      "batch": 8,
+      "call_ms_p50": 8.33,
+      "call_ms_p95": 8.56,
+      "gpu_ms_p50": 8.22,
+      "call_ms_per_window": 1.041,
+      "windows_per_s": 960.2,
+      "audio_s_per_s_ceiling": 81.94,
+      "realtime_streams_ceiling": 81.9
+    },
+    {
+      "batch": 16,
+      "call_ms_p50": 18.81,
+      "call_ms_p95": 19.33,
+      "gpu_ms_p50": 18.62,
+      "call_ms_per_window": 1.176,
+      "windows_per_s": 850.5,
+      "audio_s_per_s_ceiling": 72.58,
+      "realtime_streams_ceiling": 72.6
+    },
+    {
+      "batch": 32,
+      "call_ms_p50": 45.13,
+      "call_ms_p95": 46.03,
+      "gpu_ms_p50": 44.76,
+      "call_ms_per_window": 1.41,
+      "windows_per_s": 709.0,
+      "audio_s_per_s_ceiling": 60.5,
+      "realtime_streams_ceiling": 60.5
+    },
+    {
+      "batch": 64,
+      "call_ms_p50": 92.83,
+      "call_ms_p95": 93.27,
+      "gpu_ms_p50": 92.51,
+      "call_ms_per_window": 1.45,
+      "windows_per_s": 689.4,
+      "audio_s_per_s_ceiling": 58.83,
+      "realtime_streams_ceiling": 58.8
+    }
+  ],
+  "speedup_vs_batch1_per_window": {
+    "1": 1.0,
+    "2": 2.0,
+    "4": 4.0,
+    "8": 7.1,
+    "16": 6.3,
+    "32": 5.3,
+    "64": 5.1
+  }
+}

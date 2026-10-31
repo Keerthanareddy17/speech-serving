@@ -1,0 +1,87 @@
+{
+  "date": "2026-10-31T09:36:29+00:00",
+  "gpu": "NVIDIA L4",
+  "model": "/content/drive/MyDrive/speech-infra/models/orpheus-3b-w4a16-lmhead",
+  "vllm_version": "0.32.0",
+  "torch_version": "2.13.0+cu130",
+  "python_version": "3.13.16",
+  "config": {
+    "preset": "w4a16_lmhead",
+    "engine": {
+      "tokenizer": "canopylabs/orpheus-3b-0.1-pretrained",
+      "dtype": "bfloat16",
+      "max_model_len": 4096,
+      "gpu_memory_utilization": 0.85,
+      "model": "/content/drive/MyDrive/speech-infra/models/orpheus-3b-w4a16-lmhead"
+    },
+    "sampling": {
+      "temperature": 0.6,
+      "top_p": 0.8,
+      "repetition_penalty": 1.3,
+      "ignore_eos": true
+    },
+    "steps_per_request": 300,
+    "text": "Hi, I'm testing a realtime speech server on a single L4 GPU.",
+    "engine_class": "offline LLM (no SNAC, no server)",
+    "realtime_tokens_per_s_per_stream": 82.03,
+    "timing": "best of 2 after warmup"
+  },
+  "results": [
+    {
+      "batch": 1,
+      "ms_per_step": 7.93,
+      "tokens_per_s_total": 126.1,
+      "tokens_per_s_per_stream": 126.1,
+      "realtime_per_stream": true,
+      "audio_s_per_s_total": 1.54
+    },
+    {
+      "batch": 2,
+      "ms_per_step": 8.1,
+      "tokens_per_s_total": 246.9,
+      "tokens_per_s_per_stream": 123.4,
+      "realtime_per_stream": true,
+      "audio_s_per_s_total": 3.01
+    },
+    {
+      "batch": 4,
+      "ms_per_step": 8.43,
+      "tokens_per_s_total": 474.3,
+      "tokens_per_s_per_stream": 118.6,
+      "realtime_per_stream": true,
+      "audio_s_per_s_total": 5.78
+    },
+    {
+      "batch": 8,
+      "ms_per_step": 8.97,
+      "tokens_per_s_total": 891.8,
+      "tokens_per_s_per_stream": 111.5,
+      "realtime_per_stream": true,
+      "audio_s_per_s_total": 10.87
+    },
+    {
+      "batch": 16,
+      "ms_per_step": 10.2,
+      "tokens_per_s_total": 1568.3,
+      "tokens_per_s_per_stream": 98.0,
+      "realtime_per_stream": true,
+      "audio_s_per_s_total": 19.12
+    },
+    {
+      "batch": 32,
+      "ms_per_step": 12.99,
+      "tokens_per_s_total": 2462.9,
+      "tokens_per_s_per_stream": 77.0,
+      "realtime_per_stream": false,
+      "audio_s_per_s_total": 30.02
+    },
+    {
+      "batch": 64,
+      "ms_per_step": 19.82,
+      "tokens_per_s_total": 3228.3,
+      "tokens_per_s_per_stream": 50.4,
+      "realtime_per_stream": false,
+      "audio_s_per_s_total": 39.35
+    }
+  ]
+}

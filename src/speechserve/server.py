@@ -9,7 +9,8 @@ Protocol on /ws/tts (a connection may send several requests, one after another):
   server -> binary messages: PCM16 little-endian, mono, 24 kHz, one per decoded chunk
   server -> {"type": "done", ...timings}   or   {"type": "error", "message": "..."}
 
-Settings come from env vars (set by scripts/run_server.py): SPEECHSERVE_PRESET, SPEECHSERVE_LOG.
+Settings come from env vars (set by scripts/run_server.py): SPEECHSERVE_PRESET, SPEECHSERVE_LOG,
+SPEECHSERVE_DECODER (per_stream | batched), SPEECHSERVE_SNAC_MAX_BATCH, SPEECHSERVE_SNAC_MAX_WAIT_MS.
 """
 
 from __future__ import annotations
@@ -28,7 +29,7 @@ from starlette.websockets import WebSocketDisconnected
 DISCONNECTS = (WebSocketDisconnect, WebSocketDisconnected, OSError)
 
 from . import config as C
-from .codec import ChunkDecoder, FrameAssembler, SNACDecoder, stream_audio
+from .codec import BatchedChunkDecoder, ChunkDecoder, FrameAssembler, SNACDecoder, stream_audio
 from .engine import TTSEngine
 from .metrics import DEFAULT_LOG, GPUStats, ServerMetrics
 
@@ -109,13 +110,59 @@ async def warmup_batch_sizes() -> None:
     print(f"warmup batch sizes {WARMUP_BATCH_SIZES[0]}..{WARMUP_BATCH_SIZES[-1]} done", flush=True)
 
 
+def make_decoder() -> ChunkDecoder:
+    kind = os.environ.get("SPEECHSERVE_DECODER", "per_stream")
+    if kind == "per_stream":
+        return SNACDecoder()
+    if kind == "batched":
+        return BatchedChunkDecoder(max_batch=int(os.environ.get("SPEECHSERVE_SNAC_MAX_BATCH", "64")),
+                                   max_wait_ms=float(os.environ.get("SPEECHSERVE_SNAC_MAX_WAIT_MS", "0")))
+    raise ValueError(f"unknown decoder {kind!r}")
+
+
+def warmup_snac_batches() -> None:
+    """Batched decoder: run one SNAC call per batch size up to the cap, so the first big batch under load
+    does not pay any one-time per-shape cost."""
+    if not isinstance(S.decoder, BatchedChunkDecoder):
+        return
+    rng = np.random.default_rng(0)
+    t0 = time.perf_counter()
+    for b in range(1, S.decoder.max_batch + 1):
+        S.decoder.snac.decode_many([rng.integers(0, C.CODEBOOK_SIZE, size=(4, 7)) for _ in range(b)])
+    print(f"warmup SNAC batches 1..{S.decoder.max_batch}: {time.perf_counter() - t0:.1f} s", flush=True)
+
+
+# vLLM keeps Prometheus metrics in this process (AsyncLLM's stat logger); /metrics passes a few through so
+# the load test can see vLLM's own throughput and per-token time (~ its decode step time) under load.
+VLLM_METRICS = {
+    "vllm:generation_tokens_total": "vllm_generation_tokens_total",
+    "vllm:inter_token_latency_seconds_sum": "vllm_itl_seconds_sum",
+    "vllm:inter_token_latency_seconds_count": "vllm_itl_count",
+    "vllm:num_requests_running": "vllm_requests_running",
+    "vllm:num_requests_waiting": "vllm_requests_waiting",
+    "vllm:kv_cache_usage_perc": "vllm_kv_cache_usage",
+}
+
+
+def vllm_metrics() -> dict:
+    from prometheus_client import REGISTRY
+
+    out: dict = {}
+    for metric in REGISTRY.collect():
+        for sample in metric.samples:
+            key = VLLM_METRICS.get(sample.name)
+            if key:
+                out[key] = out.get(key, 0) + sample.value   # sum over label sets (one engine here)
+    return out
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     S.preset = os.environ.get("SPEECHSERVE_PRESET", C.DEFAULT_PRESET)
     S.chunk_cfg = C.ChunkConfig()
     S.metrics = ServerMetrics(os.environ.get("SPEECHSERVE_LOG", DEFAULT_LOG))
     S.engine = TTSEngine(S.preset)
-    S.decoder = SNACDecoder()
+    S.decoder = make_decoder()
     S.gpu = GPUStats()
     import platform
 
@@ -125,10 +172,12 @@ async def lifespan(app: FastAPI):
               "torch_version": torch.__version__, "python_version": platform.python_version(),
               "gpu": torch.cuda.get_device_name(0), "engine_args": S.engine.engine_args,
               "sampling": S.engine.sampling.to_dict(), "chunk": S.chunk_cfg.to_dict(),
-              "decoder": S.decoder.stats()["decoder"]}
+              "decoder": {k: v for k, v in S.decoder.stats().items()
+                          if k in ("decoder", "snac_max_batch", "snac_max_wait_ms")}}
     # Warmup: the first request after load is slower and samples differently (step 2), so no user gets it.
     await synthesize(WARMUP_TEXT, C.DEFAULT_VOICE, lambda b: asyncio.sleep(0))
     await warmup_batch_sizes()
+    warmup_snac_batches()
     print(f"speechserve ready: preset={S.preset}", flush=True)
     yield
     S.engine.shutdown()
@@ -144,7 +193,7 @@ async def health():
 
 @app.get("/metrics")
 async def metrics():
-    return {**S.metrics.snapshot(), **S.gpu.snapshot(), **S.decoder.stats(), "preset": S.preset}
+    return {**S.metrics.snapshot(), **S.gpu.snapshot(), **S.decoder.stats(), **vllm_metrics(), "preset": S.preset}
 
 
 @app.websocket("/ws/tts")

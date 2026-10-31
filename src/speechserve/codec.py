@@ -152,7 +152,7 @@ class SNACDecoder:
         self.pending = 0           # calls submitted but not finished
 
     def stats(self) -> dict:
-        return {"decoder": "per_stream", "snac_calls_total": self.calls,
+        return {"decoder": "per_stream", "snac_calls_total": self.calls, "snac_windows_total": self.calls,
                 "snac_busy_s_total": round(self.busy_s, 3), "snac_pending": self.pending}
 
     def set_noise(self, enabled: bool) -> None:
@@ -176,6 +176,17 @@ class SNACDecoder:
             audio = self.model.decode(codes).squeeze().float().cpu().numpy()  # .cpu() waits for the GPU
         return audio, (time.perf_counter() - t0) * 1000
 
+    def decode_many(self, frames_list) -> tuple[list[np.ndarray], float]:
+        """Synchronous decode of several same-length windows in ONE SNAC call -> (samples per window, ms).
+        Each layer is stacked along the batch dimension: (B, n), (B, 2n), (B, 4n); no padding needed."""
+        torch = self._torch
+        t0 = time.perf_counter()
+        layers = [np.stack(x) for x in zip(*(frames_to_layers(f) for f in frames_list))]
+        with torch.inference_mode():
+            codes = [torch.from_numpy(x).to(self.device) for x in layers]
+            audio = self.model.decode(codes).float().cpu().numpy()  # (B, 1, T)
+        return [audio[i, 0] for i in range(len(frames_list))], (time.perf_counter() - t0) * 1000
+
     async def decode_async(self, frames) -> tuple[np.ndarray, float]:
         return await asyncio.get_running_loop().run_in_executor(self._pool, self.decode, frames)
 
@@ -196,6 +207,90 @@ class SNACDecoder:
         self.busy_s += ms / 1000
         return AudioChunk(audio[win.keep_samples], win, ms, time.perf_counter(),
                           wait_ms=(started[0] - submitted) * 1000)
+
+
+@dataclass
+class _Pending:
+    frames: np.ndarray        # [n_frames, 7] for this window
+    win: Window
+    fut: asyncio.Future
+    submitted: float
+
+
+class BatchedChunkDecoder:
+    """One decode worker for all streams: every pending window goes into a shared queue; the worker takes
+    all of them (same window length, oldest first, at most `max_batch`), stacks them, runs ONE SNAC call
+    and returns each stream its slice. While a batch decodes, new windows pile up, so batches grow with
+    load by themselves; `max_wait_ms` > 0 additionally lets an idle worker wait that long for more."""
+
+    def __init__(self, snac: SNACDecoder | None = None, max_batch: int = 64, max_wait_ms: float = 0.0):
+        assert max_batch >= 1 and max_wait_ms >= 0
+        self.snac = snac or SNACDecoder()
+        self.max_batch, self.max_wait_ms = max_batch, max_wait_ms
+        self._queue: list[_Pending] = []
+        self._wakeup: asyncio.Event | None = None
+        self._task: asyncio.Task | None = None
+        self._inflight = 0
+        self.calls = self.windows = self.batch_max = 0
+        self.busy_s = 0.0
+
+    def set_noise(self, enabled: bool) -> None:
+        self.snac.set_noise(enabled)
+
+    def stats(self) -> dict:
+        return {"decoder": "batched", "snac_calls_total": self.calls, "snac_windows_total": self.windows,
+                "snac_busy_s_total": round(self.busy_s, 3), "snac_pending": len(self._queue) + self._inflight,
+                "snac_batch_max_seen": self.batch_max, "snac_max_batch": self.max_batch,
+                "snac_max_wait_ms": self.max_wait_ms}
+
+    async def decode_window(self, frames: list[list[int]], win: Window) -> AudioChunk:
+        if self._task is None or self._task.done():
+            self._wakeup = asyncio.Event()
+            self._task = asyncio.create_task(self._worker())
+        item = _Pending(np.asarray(frames[win.decode_start:win.decode_end], dtype=np.int64), win,
+                        asyncio.get_running_loop().create_future(), time.perf_counter())
+        self._queue.append(item)
+        self._wakeup.set()
+        audio, ms, wait_ms = await item.fut
+        return AudioChunk(audio[win.keep_samples], win, ms, time.perf_counter(), wait_ms=wait_ms)
+
+    def _take_batch(self) -> list[_Pending]:
+        n = len(self._queue[0].frames)
+        batch = [it for it in self._queue if len(it.frames) == n][: self.max_batch]
+        taken = set(map(id, batch))
+        self._queue = [it for it in self._queue if id(it) not in taken]
+        return batch
+
+    async def _worker(self) -> None:
+        loop = asyncio.get_running_loop()
+        while True:
+            await self._wakeup.wait()
+            self._wakeup.clear()
+            if self.max_wait_ms > 0 and 0 < len(self._queue) < self.max_batch:
+                await asyncio.sleep(self.max_wait_ms / 1000)
+            while self._queue:
+                batch = [it for it in self._take_batch() if not it.fut.done()]  # skip cancelled streams
+                if not batch:
+                    continue
+                started = time.perf_counter()
+                self._inflight = len(batch)
+                try:
+                    audios, ms = await loop.run_in_executor(self.snac._pool, self.snac.decode_many,
+                                                            [it.frames for it in batch])
+                except Exception as e:  # deliver the error to every waiting stream
+                    for it in batch:
+                        if not it.fut.done():
+                            it.fut.set_exception(e)
+                    continue
+                finally:
+                    self._inflight = 0
+                self.calls += 1
+                self.windows += len(batch)
+                self.batch_max = max(self.batch_max, len(batch))
+                self.busy_s += ms / 1000
+                for it, audio in zip(batch, audios):
+                    if not it.fut.done():
+                        it.fut.set_result((audio, ms, (started - it.submitted) * 1000))
 
 
 async def stream_audio(token_stream: AsyncIterator[list[int]], decoder: ChunkDecoder,

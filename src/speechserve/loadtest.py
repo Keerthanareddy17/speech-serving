@@ -190,10 +190,18 @@ def summarize_level(level: Level, samples: list, cpu_s: float) -> dict:
         samp = sum(n for t, n in level.chunks if t_a <= t <= t_b)
         thr = samp / C.SAMPLE_RATE / (t_b - t_a)
     win = [(t, s) for t, s in samples if t_a and t_b and t_a <= t <= t_b] or samples
-    snac_busy = None
+    snac_busy = snac_batch = vllm_tok_s = vllm_itl_ms = vllm_running = None
     if len(win) >= 2:
         (ta, a), (tb, b) = win[0], win[-1]
         snac_busy = (b["snac_busy_s_total"] - a["snac_busy_s_total"]) / (tb - ta)
+        dcalls = b["snac_calls_total"] - a["snac_calls_total"]
+        if dcalls and "snac_windows_total" in b:
+            snac_batch = (b["snac_windows_total"] - a["snac_windows_total"]) / dcalls
+        if "vllm_generation_tokens_total" in b:
+            vllm_tok_s = (b["vllm_generation_tokens_total"] - a["vllm_generation_tokens_total"]) / (tb - ta)
+            dn = b["vllm_itl_count"] - a["vllm_itl_count"]
+            vllm_itl_ms = 1000 * (b["vllm_itl_seconds_sum"] - a["vllm_itl_seconds_sum"]) / dn if dn else None
+            vllm_running = float(np.mean([s["vllm_requests_running"] for _, s in win]))
     wall = level.t_stop - level.t0
     return {
         "streams": level.n,
@@ -215,6 +223,10 @@ def summarize_level(level: Level, samples: list, cpu_s: float) -> dict:
         "snac_ms_per_chunk_p50": pct([r["server"].get("snac_ms_mean") for r in ok], 50),
         "snac_wait_ms_per_chunk_p50": pct([r["server"].get("snac_wait_ms_mean") for r in ok], 50),
         "snac_busy_fraction": round(snac_busy, 3) if snac_busy is not None else None,
+        "snac_batch_mean": round(snac_batch, 2) if snac_batch is not None else None,
+        "vllm_tokens_per_s": round(vllm_tok_s, 1) if vllm_tok_s is not None else None,
+        "vllm_ms_per_token": round(vllm_itl_ms, 2) if vllm_itl_ms is not None else None,
+        "vllm_requests_running_mean": round(vllm_running, 1) if vllm_running is not None else None,
         "gpu_util_pct_mean": round(float(np.mean([s["gpu_util_pct"] for _, s in win])), 1) if win else None,
         "gpu_mem_used_gib_peak": max((s["gpu_mem_used_gib"] for _, s in samples), default=None),
         "client_cpu_pct_of_one_core": round(100 * cpu_s / wall, 1),

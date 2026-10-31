@@ -72,7 +72,9 @@ async def main():
         print(f"N={n:3d} reqs {s['measured_requests']:4d} err {s['errors']} | TTFA p50 {s['ttfa_ms_p50']} p95 "
               f"{s['ttfa_ms_p95']} ms | RTF p50 {s['rtf_p50']} p95 {s['rtf_p95']} | gaps {s['pct_requests_with_gaps']}% "
               f"| buffer p95 {s['buffer_needed_ms_p95']} ms | thr {s['throughput_audio_s_per_s']} audio-s/s | "
-              f"SNAC busy {s['snac_busy_fraction']} wait p50 {s['snac_wait_ms_per_chunk_p50']} ms | GPU "
+              f"SNAC busy {s['snac_busy_fraction']} batch {s['snac_batch_mean']} wait p50 "
+              f"{s['snac_wait_ms_per_chunk_p50']} ms | vLLM {s['vllm_tokens_per_s']} tok/s {s['vllm_ms_per_token']} "
+              f"ms/tok | GPU "
               f"{s['gpu_util_pct_mean']}% {s['gpu_mem_used_gib_peak']} GiB | client CPU {s['client_cpu_pct_of_one_core']}% "
               f"| {s['level_wall_s']} s", flush=True)
         # save after every level so a crash keeps what was measured
