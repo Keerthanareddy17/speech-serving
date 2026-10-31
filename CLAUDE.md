@@ -12,4 +12,4 @@ tokenization pipeline, measured on a single NVIDIA L4.
   Only small results (<5 MB) go in `results/`.
 - **When measuring, change one thing at a time** and save the config with every result.
 - **Every result file records GPU, model, vllm version, and date.**
-- **Explain what you're doing in plain words before each change.** The user wants to understand every piece.
+- **Explain each change in plain words before making it.** Every piece of the project should be understandable.

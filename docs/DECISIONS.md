@@ -33,8 +33,8 @@ pip install --force-reinstall --no-deps nvidia-cudnn-cu13==9.20.0.48
   vLLM offline `LLM` class, `dtype=bfloat16`. The checkpoint is stored in fp32 (~15 GB on disk) and cast
   on load (~6.4 GB of weights on GPU).
 - Tokenizer from `canopylabs/orpheus-3b-0.1-pretrained`, as upstream `engine_class.py` does.
-- We do **not** use the `orpheus-speech` pip wrapper (it pins an old vllm); we reimplement its prompt
-  format and decoder logic in our own code.
+- The `orpheus-speech` pip wrapper is **not** used (it pins an old vllm); its prompt format and
+  decoder logic are reimplemented in this repo's code.
 - L4 flags:
   - `max_model_len=4096`: the checkpoint advertises a 131k context, and vLLM must fit KV cache for at
     least one max-length sequence, which does not fit next to the weights on 24 GB.
@@ -49,11 +49,11 @@ Source of truth: canopyai/Orpheus-TTS @ `e64661fe6d` (2025-12-05).
 - **Prompt** (`orpheus_tts_pypi/orpheus_tts/engine_class.py`, `_format_prompt`):
   `[128259] + tokenize("{voice}: {text}") + [128009, 128260, 128261, 128257]`
   (start-of-human, text with Llama BOS, end-of-text, end-of-human, start-of-AI, start-of-speech).
-  We pass these ids straight to vLLM (`TokensPrompt`). Upstream decodes them to a string and lets vLLM
+  These ids are passed straight to vLLM (`TokensPrompt`). Upstream decodes them to a string and lets vLLM
   re-tokenize it, which risks a different split.
 - **Stop token**: `128258` (end-of-speech), from `realtime_streaming_example/main.py` and the Baseten
-  example. The pip wrapper's default `stop_token_ids=[49158]` is not an Orpheus special token, so we
-  don't use it.
+  example. The pip wrapper's default `stop_token_ids=[49158]` is not an Orpheus special token, so it
+  is not used.
 - **Sampling defaults** (`generate_tokens_sync`): temperature 0.6, top_p 0.8, repetition_penalty 1.3,
   max_tokens 1200. The README says repetition_penalty >= 1.1 is required for stable output.
 - **Token -> SNAC codes** (`orpheus_tts_pypi/orpheus_tts/decoder.py`, `turn_token_into_id` and
@@ -171,7 +171,7 @@ the step 1b section):
 - **w4a16 is faster than realtime** (≤ 12.2 ms/token needed). The step 1c report of 17.8 ms/token
   and "~9.5 ms of unexplained overhead" came from the capture artefact.
 - Different weights, same seed: w4a16 produced a different token sequence (435 tokens, 5.29 s).
-  The user listened: the audio sounds clean.
+  Listening check: the audio sounds clean.
 
 ## Decode overhead and lm_head (step 1d, 2026-10-31)
 
@@ -196,7 +196,7 @@ row, same sentence and seed. Rows from `no_detok` on are stacked on `detokenize=
 |---|---|---|---|---|---|
 | baseline | W4A16 as in step 1c, short warmup | 10.86 | 92.1 | 0.89 | — |
 | matched_warmup | warmup with identical SamplingParams | 10.85 | 92.2 | 0.89 | yes (methodology) |
-| no_detok | `detokenize=False` | 10.88 | 91.9 | 0.90 | yes: neutral at batch 1, we never use the text |
+| no_detok | `detokenize=False` | 10.88 | 91.9 | 0.90 | yes: neutral at batch 1, and the text output is never used |
 | async_off | measure-only: `async_scheduling=False` | 12.90 | 77.5 | 1.06 | default (on) kept: worth ~2 ms/token |
 | graph_full_decode_only | `cudagraph_mode=FULL_DECODE_ONLY` | 10.97 | 91.1 | 0.90 | no: default FULL_AND_PIECEWISE already graphs decode fully |
 | flashinfer_sampler_off | measure-only: `VLLM_USE_FLASHINFER_SAMPLER=0` | 10.95 | 91.3 | 0.90 | default (on) kept; sampling is ~0.13 ms |
