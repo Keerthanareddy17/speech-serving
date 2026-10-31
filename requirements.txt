@@ -12,6 +12,8 @@ websockets
 numpy
 soundfile
 faster-whisper
+# step 7 pipeline: VAD trimming (prebuilt wheels of webrtcvad 2.0.x)
+webrtcvad-wheels==2.0.14.post1
 jiwer
 pydantic
 pytest

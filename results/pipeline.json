@@ -1,0 +1,714 @@
+{
+  "runs": {
+    "baseline": {
+      "label": "baseline",
+      "date": "2026-10-31T12:04:33+00:00",
+      "gpu": "NVIDIA L4",
+      "model": "hubertsiuzdak/snac_24khz (encoder)",
+      "vllm_version": "0.32.0",
+      "torch_version": "2.13.0+cu130",
+      "python_version": "3.13.16",
+      "cpu_count": 12,
+      "config": {
+        "label": "baseline",
+        "files": 4,
+        "workers": 4,
+        "inflight_per_worker": 3,
+        "batch_clips": 16,
+        "budget_batches": false,
+        "max_batch_samples": 2400000,
+        "bucket_buffer": 512,
+        "pin": false,
+        "prefetch": false,
+        "clips_per_shard": 2500,
+        "copy_to_drive": false,
+        "vad": {
+          "aggressiveness": 2,
+          "min_run": 3,
+          "pad_ms": 100,
+          "min_speech_s": 0.5
+        },
+        "tokenize": {
+          "batch_clips": 16,
+          "max_batch_samples": 2400000,
+          "bucket_buffer": 512,
+          "pin_memory": false,
+          "prefetch": false
+        },
+        "parquet_files": 4,
+        "row_groups": 76
+      },
+      "data": {
+        "clips_in": 7388,
+        "clips_out": 7362,
+        "dropped": 26,
+        "resampled": 0,
+        "orig_audio_hours": 12.285,
+        "trimmed_audio_hours": 12.261,
+        "trimmed_fraction": 0.0019,
+        "tokens": 3646454,
+        "tokens_per_audio_hour": 297405,
+        "tokens_per_audio_second": 82.612,
+        "token_count_mismatches": 0,
+        "shards": 3,
+        "shard_bytes": 7537515
+      },
+      "wall_s": 134.5,
+      "end_to_end_audio_hours_per_min": 5.48,
+      "stages": {
+        "read_parquet": {
+          "busy_s": 6.0,
+          "hours_per_min_capacity": 488.78
+        },
+        "decode": {
+          "busy_s": 8.3,
+          "hours_per_min_capacity": 356.74
+        },
+        "vad": {
+          "busy_s": 44.1,
+          "hours_per_min_capacity": 66.9
+        },
+        "tokenize_prep": {
+          "busy_s": 2.9,
+          "note": "pad + pin + host->device copy (main or prefetch thread)"
+        },
+        "tokenize_gpu": {
+          "busy_s": 127.8,
+          "hours_per_min_capacity": 5.76,
+          "batches": 468,
+          "mean_clips_per_batch": 15.7,
+          "padding_overhead": 0.0632
+        },
+        "shard": {
+          "busy_s": 1.2,
+          "hours_per_min_capacity": 592.31
+        }
+      },
+      "waits": {
+        "main_waiting_for_decode_s": 2.5,
+        "main_waiting_fraction_of_wall": 0.019,
+        "worker_utilisation": 0.109
+      },
+      "utilisation": {
+        "cpu_pct_mean": 14.2,
+        "gpu_pct_mean": 93.5,
+        "gpu_mem_gib_peak": 22.06
+      },
+      "shards_dir": "/content/data/shards/baseline"
+    },
+    "tuned": {
+      "label": "tuned",
+      "date": "2026-10-31T12:10:40+00:00",
+      "gpu": "NVIDIA L4",
+      "model": "hubertsiuzdak/snac_24khz (encoder)",
+      "vllm_version": "0.32.0",
+      "torch_version": "2.13.0+cu130",
+      "python_version": "3.13.16",
+      "cpu_count": 12,
+      "config": {
+        "label": "tuned",
+        "files": 4,
+        "workers": 4,
+        "inflight_per_worker": 3,
+        "batch_clips": 16,
+        "budget_batches": true,
+        "max_batch_samples": 4000000,
+        "bucket_buffer": 512,
+        "pin": true,
+        "prefetch": true,
+        "compile": true,
+        "clips_per_shard": 2500,
+        "copy_to_drive": false,
+        "vad": {
+          "aggressiveness": 2,
+          "min_run": 3,
+          "pad_ms": 100,
+          "min_speech_s": 0.5
+        },
+        "tokenize": {
+          "batch_clips": null,
+          "max_batch_samples": 4000000,
+          "bucket_buffer": 512,
+          "pin_memory": true,
+          "prefetch": true,
+          "compile": true
+        },
+        "parquet_files": 4,
+        "row_groups": 76
+      },
+      "data": {
+        "clips_in": 7388,
+        "clips_out": 7362,
+        "dropped": 26,
+        "resampled": 0,
+        "orig_audio_hours": 12.285,
+        "trimmed_audio_hours": 12.261,
+        "trimmed_fraction": 0.0019,
+        "tokens": 3646454,
+        "tokens_per_audio_hour": 297405,
+        "tokens_per_audio_second": 82.612,
+        "token_count_mismatches": 0,
+        "shards": 3,
+        "shard_bytes": 7537521
+      },
+      "wall_s": 140.0,
+      "end_to_end_audio_hours_per_min": 5.27,
+      "stages": {
+        "read_parquet": {
+          "busy_s": 7.9,
+          "hours_per_min_capacity": 372.13
+        },
+        "decode": {
+          "busy_s": 8.1,
+          "hours_per_min_capacity": 365.43
+        },
+        "vad": {
+          "busy_s": 43.5,
+          "hours_per_min_capacity": 67.7
+        },
+        "tokenize_prep": {
+          "busy_s": 6.0,
+          "note": "pad + pin + host->device copy (main or prefetch thread)"
+        },
+        "tokenize_gpu": {
+          "busy_s": 136.4,
+          "hours_per_min_capacity": 5.39,
+          "batches": 301,
+          "mean_clips_per_batch": 24.5,
+          "padding_overhead": 0.0757
+        },
+        "shard": {
+          "busy_s": 1.0,
+          "hours_per_min_capacity": 724.24
+        }
+      },
+      "waits": {
+        "main_waiting_for_decode_s": 2.4,
+        "main_waiting_fraction_of_wall": 0.017,
+        "worker_utilisation": 0.106
+      },
+      "utilisation": {
+        "cpu_pct_mean": 14.6,
+        "gpu_pct_mean": 77.2,
+        "gpu_mem_gib_peak": 6.58
+      },
+      "shards_dir": "/content/data/shards/tuned"
+    },
+    "tuned_noprefetch": {
+      "label": "tuned_noprefetch",
+      "date": "2026-10-31T12:16:18+00:00",
+      "gpu": "NVIDIA L4",
+      "model": "hubertsiuzdak/snac_24khz (encoder)",
+      "vllm_version": "0.32.0",
+      "torch_version": "2.13.0+cu130",
+      "python_version": "3.13.16",
+      "cpu_count": 12,
+      "config": {
+        "label": "tuned_noprefetch",
+        "files": 4,
+        "workers": 4,
+        "inflight_per_worker": 3,
+        "batch_clips": 16,
+        "budget_batches": true,
+        "max_batch_samples": 4000000,
+        "bucket_buffer": 512,
+        "pin": true,
+        "prefetch": false,
+        "compile": true,
+        "clips_per_shard": 2500,
+        "copy_to_drive": false,
+        "vad": {
+          "aggressiveness": 2,
+          "min_run": 3,
+          "pad_ms": 100,
+          "min_speech_s": 0.5
+        },
+        "tokenize": {
+          "batch_clips": null,
+          "max_batch_samples": 4000000,
+          "bucket_buffer": 512,
+          "pin_memory": true,
+          "prefetch": false,
+          "compile": true
+        },
+        "parquet_files": 4,
+        "row_groups": 76
+      },
+      "data": {
+        "clips_in": 7388,
+        "clips_out": 7362,
+        "dropped": 26,
+        "resampled": 0,
+        "orig_audio_hours": 12.285,
+        "trimmed_audio_hours": 12.261,
+        "trimmed_fraction": 0.0019,
+        "tokens": 3646454,
+        "tokens_per_audio_hour": 297405,
+        "tokens_per_audio_second": 82.612,
+        "token_count_mismatches": 0,
+        "shards": 3,
+        "shard_bytes": 7537521
+      },
+      "wall_s": 120.1,
+      "end_to_end_audio_hours_per_min": 6.14,
+      "stages": {
+        "read_parquet": {
+          "busy_s": 5.1,
+          "hours_per_min_capacity": 576.25
+        },
+        "decode": {
+          "busy_s": 8.2,
+          "hours_per_min_capacity": 359.93
+        },
+        "vad": {
+          "busy_s": 43.7,
+          "hours_per_min_capacity": 67.46
+        },
+        "tokenize_prep": {
+          "busy_s": 2.0,
+          "note": "pad + pin + host->device copy (main or prefetch thread)"
+        },
+        "tokenize_gpu": {
+          "busy_s": 114.6,
+          "hours_per_min_capacity": 6.42,
+          "batches": 301,
+          "mean_clips_per_batch": 24.5,
+          "padding_overhead": 0.0757
+        },
+        "shard": {
+          "busy_s": 1.0,
+          "hours_per_min_capacity": 754.88
+        }
+      },
+      "waits": {
+        "main_waiting_for_decode_s": 2.5,
+        "main_waiting_fraction_of_wall": 0.021,
+        "worker_utilisation": 0.119
+      },
+      "utilisation": {
+        "cpu_pct_mean": 15.2,
+        "gpu_pct_mean": 86.4,
+        "gpu_mem_gib_peak": 6.53
+      },
+      "shards_dir": "/content/data/shards/tuned_noprefetch"
+    },
+    "tuned_8m": {
+      "label": "tuned_8m",
+      "date": "2026-10-31T12:18:42+00:00",
+      "gpu": "NVIDIA L4",
+      "model": "hubertsiuzdak/snac_24khz (encoder)",
+      "vllm_version": "0.32.0",
+      "torch_version": "2.13.0+cu130",
+      "python_version": "3.13.16",
+      "cpu_count": 12,
+      "config": {
+        "label": "tuned_8m",
+        "files": 4,
+        "workers": 4,
+        "inflight_per_worker": 3,
+        "batch_clips": 16,
+        "budget_batches": true,
+        "max_batch_samples": 8000000,
+        "bucket_buffer": 1024,
+        "pin": true,
+        "prefetch": false,
+        "compile": true,
+        "clips_per_shard": 2500,
+        "copy_to_drive": false,
+        "vad": {
+          "aggressiveness": 2,
+          "min_run": 3,
+          "pad_ms": 100,
+          "min_speech_s": 0.5
+        },
+        "tokenize": {
+          "batch_clips": null,
+          "max_batch_samples": 8000000,
+          "bucket_buffer": 1024,
+          "pin_memory": true,
+          "prefetch": false,
+          "compile": true
+        },
+        "parquet_files": 4,
+        "row_groups": 76
+      },
+      "data": {
+        "clips_in": 7388,
+        "clips_out": 7362,
+        "dropped": 26,
+        "resampled": 0,
+        "orig_audio_hours": 12.285,
+        "trimmed_audio_hours": 12.261,
+        "trimmed_fraction": 0.0019,
+        "tokens": 3646454,
+        "tokens_per_audio_hour": 297405,
+        "tokens_per_audio_second": 82.612,
+        "token_count_mismatches": 0,
+        "shards": 3,
+        "shard_bytes": 7532917
+      },
+      "wall_s": 120.9,
+      "end_to_end_audio_hours_per_min": 6.1,
+      "stages": {
+        "read_parquet": {
+          "busy_s": 5.1,
+          "hours_per_min_capacity": 572.73
+        },
+        "decode": {
+          "busy_s": 8.3,
+          "hours_per_min_capacity": 356.97
+        },
+        "vad": {
+          "busy_s": 44.1,
+          "hours_per_min_capacity": 66.81
+        },
+        "tokenize_prep": {
+          "busy_s": 2.1,
+          "note": "pad + pin + host->device copy (main or prefetch thread)"
+        },
+        "tokenize_gpu": {
+          "busy_s": 113.7,
+          "hours_per_min_capacity": 6.47,
+          "batches": 150,
+          "mean_clips_per_batch": 49.1,
+          "padding_overhead": 0.0847
+        },
+        "shard": {
+          "busy_s": 1.3,
+          "hours_per_min_capacity": 560.08
+        }
+      },
+      "waits": {
+        "main_waiting_for_decode_s": 3.8,
+        "main_waiting_fraction_of_wall": 0.031,
+        "worker_utilisation": 0.119
+      },
+      "utilisation": {
+        "cpu_pct_mean": 15.0,
+        "gpu_pct_mean": 85.5,
+        "gpu_mem_gib_peak": 22.22
+      },
+      "shards_dir": "/content/data/shards/tuned_8m"
+    },
+    "full": {
+      "label": "full",
+      "date": "2026-10-31T12:27:02+00:00",
+      "gpu": "NVIDIA L4",
+      "model": "hubertsiuzdak/snac_24khz (encoder)",
+      "vllm_version": "0.32.0",
+      "torch_version": "2.13.0+cu130",
+      "python_version": "3.13.16",
+      "cpu_count": 12,
+      "config": {
+        "label": "full",
+        "files": null,
+        "workers": 4,
+        "inflight_per_worker": 3,
+        "batch_clips": 16,
+        "budget_batches": true,
+        "max_batch_samples": 4000000,
+        "bucket_buffer": 512,
+        "pin": true,
+        "prefetch": false,
+        "compile": true,
+        "clips_per_shard": 2500,
+        "copy_to_drive": true,
+        "vad": {
+          "aggressiveness": 2,
+          "min_run": 3,
+          "pad_ms": 100,
+          "min_speech_s": 0.5
+        },
+        "tokenize": {
+          "batch_clips": null,
+          "max_batch_samples": 4000000,
+          "bucket_buffer": 512,
+          "pin_memory": true,
+          "prefetch": false,
+          "compile": true
+        },
+        "parquet_files": 18,
+        "row_groups": 342
+      },
+      "data": {
+        "clips_in": 33232,
+        "clips_out": 33113,
+        "dropped": 119,
+        "resampled": 0,
+        "orig_audio_hours": 53.549,
+        "trimmed_audio_hours": 53.442,
+        "trimmed_fraction": 0.002,
+        "tokens": 15898071,
+        "tokens_per_audio_hour": 297483,
+        "tokens_per_audio_second": 82.634,
+        "token_count_mismatches": 0,
+        "shards": 14,
+        "shard_bytes": 32893305
+      },
+      "wall_s": 480.7,
+      "end_to_end_audio_hours_per_min": 6.68,
+      "stages": {
+        "read_parquet": {
+          "busy_s": 25.4,
+          "hours_per_min_capacity": 506.35
+        },
+        "decode": {
+          "busy_s": 27.1,
+          "hours_per_min_capacity": 474.25
+        },
+        "vad": {
+          "busy_s": 189.4,
+          "hours_per_min_capacity": 67.87
+        },
+        "tokenize_prep": {
+          "busy_s": 9.8,
+          "note": "pad + pin + host->device copy (main or prefetch thread)"
+        },
+        "tokenize_gpu": {
+          "busy_s": 464.9,
+          "hours_per_min_capacity": 6.9,
+          "batches": 1308,
+          "mean_clips_per_batch": 25.3,
+          "padding_overhead": 0.0772
+        },
+        "shard": {
+          "busy_s": 3.2,
+          "hours_per_min_capacity": 1001.3
+        }
+      },
+      "waits": {
+        "main_waiting_for_decode_s": 2.5,
+        "main_waiting_fraction_of_wall": 0.005,
+        "worker_utilisation": 0.126
+      },
+      "utilisation": {
+        "cpu_pct_mean": 15.5,
+        "gpu_pct_mean": 94.0,
+        "gpu_mem_gib_peak": 7.96
+      },
+      "shards_dir": "/content/data/shards/full",
+      "drive_copy": {
+        "dir": "/content/drive/MyDrive/speech-infra/shards/full",
+        "seconds": 0.2
+      }
+    }
+  },
+  "validation": {
+    "date": "2026-10-31T12:28:00+00:00",
+    "shards": "/content/data/shards/full",
+    "per_clip_checks": {
+      "clips_checked": 33113,
+      "token_count_vs_frames_failures": 0,
+      "frames_vs_duration_failures": 0,
+      "token_range_failures": 0,
+      "examples": {
+        "count": [],
+        "duration": [],
+        "range": []
+      }
+    },
+    "random_clips": [
+      {
+        "id": "6147_34605_000025_000001",
+        "text": "They deprive it of the honour of their adherence.",
+        "duration_s": 2.34,
+        "n_tokens": 196,
+        "len_samples_orig": 56160,
+        "len_samples_recon": 57344,
+        "waveform_snr_db": 1.89,
+        "logmel_snr_db": 17.12,
+        "logmel_l1": 0.742,
+        "eager_single_clip": {
+          "token_agreement_L0_L1_L2": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "waveform_snr_db": 1.89,
+          "logmel_snr_db": 17.12,
+          "logmel_l1": 0.742
+        }
+      },
+      {
+        "id": "8088_284756_000090_000000",
+        "text": "\"We should be able to,\" I smiled.",
+        "duration_s": 1.68,
+        "n_tokens": 140,
+        "len_samples_orig": 40320,
+        "len_samples_recon": 40960,
+        "waveform_snr_db": 2.4,
+        "logmel_snr_db": 16.79,
+        "logmel_l1": 0.755,
+        "eager_single_clip": {
+          "token_agreement_L0_L1_L2": [
+            0.95,
+            0.975,
+            0.95
+          ],
+          "waveform_snr_db": 2.4,
+          "logmel_snr_db": 16.75,
+          "logmel_l1": 0.759
+        }
+      },
+      {
+        "id": "3526_176653_000024_000001",
+        "text": "The minnow was all right, so he tossed it back again.",
+        "duration_s": 2.46,
+        "n_tokens": 203,
+        "len_samples_orig": 59040,
+        "len_samples_recon": 59392,
+        "waveform_snr_db": 5.81,
+        "logmel_snr_db": 19.38,
+        "logmel_l1": 0.615,
+        "eager_single_clip": {
+          "token_agreement_L0_L1_L2": [
+            1.0,
+            0.9828,
+            0.9828
+          ],
+          "waveform_snr_db": 5.81,
+          "logmel_snr_db": 19.36,
+          "logmel_l1": 0.616
+        }
+      },
+      {
+        "id": "5678_43301_000018_000001",
+        "text": "Then there came a retrospect, comparing the old state of England with the present.",
+        "duration_s": 4.68,
+        "n_tokens": 385,
+        "len_samples_orig": 112320,
+        "len_samples_recon": 112640,
+        "waveform_snr_db": 2.99,
+        "logmel_snr_db": 18.45,
+        "logmel_l1": 0.69,
+        "eager_single_clip": {
+          "token_agreement_L0_L1_L2": [
+            1.0,
+            0.9727,
+            0.9864
+          ],
+          "waveform_snr_db": 2.99,
+          "logmel_snr_db": 18.51,
+          "logmel_l1": 0.687
+        }
+      },
+      {
+        "id": "6209_34601_000112_000000",
+        "text": "He swallowed some mouthfuls and made a grimace.",
+        "duration_s": 2.7,
+        "n_tokens": 224,
+        "len_samples_orig": 64800,
+        "len_samples_recon": 65536,
+        "waveform_snr_db": 4.85,
+        "logmel_snr_db": 18.65,
+        "logmel_l1": 0.666,
+        "eager_single_clip": {
+          "token_agreement_L0_L1_L2": [
+            0.9688,
+            0.9531,
+            0.9531
+          ],
+          "waveform_snr_db": 4.85,
+          "logmel_snr_db": 18.74,
+          "logmel_l1": 0.658
+        }
+      }
+    ],
+    "summary": {
+      "waveform_snr_db": 3.59,
+      "logmel_snr_db": 18.08,
+      "logmel_l1": 0.69,
+      "eager_logmel_snr_db": 18.1,
+      "eager_token_agreement_mean": [
+        0.9838,
+        0.9767,
+        0.9745
+      ]
+    },
+    "listen": [
+      "results/samples/pipeline/5678_43301_000018_000001_original.wav",
+      "results/samples/pipeline/5678_43301_000018_000001_reconstructed.wav"
+    ],
+    "decoder": "SNAC fp32, noise off",
+    "vad": {
+      "aggressiveness": 2,
+      "min_run": 3,
+      "pad_ms": 100,
+      "min_speech_s": 0.5
+    }
+  },
+  "encode_microbench": {
+    "note": "ad-hoc measurements on fixed batches of real clips (SNAC encoder alone on the L4, after warmup); code agreement vs fp32 eager",
+    "batch": "32 mid-length clips padded to 4.78 s (2.55 min of audio)",
+    "options": [
+      {
+        "variant": "fp32 eager",
+        "ms_per_batch": 400.3,
+        "audio_hours_per_min": 5.2,
+        "code_agreement": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "variant": "fp32 + cudnn.benchmark",
+        "ms_per_batch": 400.1,
+        "audio_hours_per_min": 5.2,
+        "code_agreement": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "variant": "fp16 autocast",
+        "ms_per_batch": 350.7,
+        "audio_hours_per_min": 5.9,
+        "code_agreement": [
+          0.971,
+          0.9397,
+          0.9212
+        ]
+      },
+      {
+        "variant": "bf16 autocast",
+        "ms_per_batch": 355.8,
+        "audio_hours_per_min": 5.8,
+        "code_agreement": [
+          0.7333,
+          0.6147,
+          0.5773
+        ]
+      },
+      {
+        "variant": "torch.compile(encoder, dynamic=True), fp32",
+        "ms_per_batch": 325.8,
+        "audio_hours_per_min": 6.3,
+        "code_agreement": [
+          0.9989,
+          0.9989,
+          0.9937
+        ],
+        "speedup": "1.24-1.26x on 3 batch shapes"
+      }
+    ],
+    "profile_share_of_gpu_time": {
+      "snake_activation_fused": 0.27,
+      "other_elementwise": 0.34,
+      "depthwise_conv": 0.17,
+      "gemm_convs": 0.17,
+      "quantizer_rvq": 0.02
+    },
+    "real_batches_40_from_one_file": {
+      "eager_2.4M": 5.57,
+      "eager_4.0M": 5.62,
+      "compile_2.4M": 5.69,
+      "compile_4.0M": 7.15,
+      "eager_16_clips": 5.55,
+      "unit": "audio hours per minute",
+      "recompiles": 0
+    },
+    "compile_bug": "torch.compile(SNAC.encode) fails with a dynamo guard assertion in SNAC.preprocess; compiling SNAC.encoder works"
+  }
+}

@@ -165,3 +165,17 @@ def test_early_first_chunk_stitches_every_frame_once(w):
     for win in p.plan(n_total, final=True):
         out.append(np.repeat(np.arange(win.decode_start, win.decode_end), C.SAMPLES_PER_FRAME)[win.keep_samples])
     assert np.array_equal(np.concatenate(out), np.repeat(np.arange(0, n_total), C.SAMPLES_PER_FRAME))
+
+
+# ---- step 7: reverse mapping (SNAC codes -> Orpheus token ids) -----------------------------------------
+def test_reverse_mapping_round_trips_through_the_server_path():
+    from speechserve.codec import frames_to_token_ids, layers_to_frames
+    rng = np.random.default_rng(0)
+    n = 9
+    l0, l1, l2 = rng.integers(0, 4096, n), rng.integers(0, 4096, 2 * n), rng.integers(0, 4096, 4 * n)
+    ids = frames_to_token_ids(layers_to_frames(l0, l1, l2))
+    assert len(ids) == 7 * n and ids.min() >= C.AUDIO_TOKEN_BASE
+    asm = FrameAssembler()                                   # what the server does with generated ids
+    asm.push(ids.tolist())
+    b0, b1, b2 = frames_to_layers(asm.frames)
+    assert np.array_equal(b0, l0) and np.array_equal(b1, l1) and np.array_equal(b2, l2)

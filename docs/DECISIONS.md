@@ -875,7 +875,87 @@ near-silence.
 - **Limit unchanged** (see 6b): vLLM's per-token time, inflated by sharing the GPU with SNAC in another
   process.
 
-## Tokenization pipeline
+## Tokenization pipeline (step 7, 2026-10-31)
+
+### Data
+- **Source:** LibriTTS-R train-clean-100 (CC BY 4.0) from the HF parquet mirror `blabble-io/libritts_r`,
+  split `train.clean.100`: 18 parquet files, 9.24 GB, 33,232 clips of 24 kHz WAV bytes, with
+  normalised text, speaker, chapter and id.
+- **Download:** to local disk (`/content/data/libritts_r/`) at ~300 MB/s, the whole split in **28 s**.
+  The time box didn't apply, so **all 53.55 h** were used.
+
+### Pipeline (`src/speechserve/pipeline/`, `scripts/run_pipeline.py`)
+1. **decode** (CPU worker processes; one parquet row group of ~100 clips per task): WAV bytes →
+   mono float32. All clips were 24 kHz, so 0 were resampled.
+2. **vad** (same workers, timed separately): webrtcvad, aggressiveness 2, 30 ms frames, on a 16 kHz
+   copy. Speech = runs of ≥ 3 voiced frames; 100 ms kept on each side; clips < 0.5 s after trimming are
+   dropped. No splitting: LibriTTS-R is already sentence-length. The clips are already tight, so
+   trimming removed only 0.2% of the audio; 119 clips (0.36%) were dropped.
+3. **tokenize** (GPU): SNAC 24 kHz encode.
+   - Clips are bucketed by length (buffer of 512, sorted) and batched up to a padded-sample budget;
+     padding overhead is 7.7%.
+   - Each clip's codes are trimmed back to its own ceil(len / 2048) frames.
+   - Optional pinned memory, prefetch thread and `torch.compile`.
+4. **shard:** codes → Orpheus ids via the new `codec.layers_to_frames` + `frames_to_token_ids`, the
+   exact inverse of what the server decodes (round-trip test in `tests/test_chunking.py`).
+   - Format: zstd parquet shards of 2,500 clips (id, speaker_id, chapter_id, text, duration_s,
+     orig_duration_s, n_frames, n_tokens, tokens list<int32>), plus `manifest.json`.
+   - Written to `/content/data/shards/<label>/`, then copied to
+     `/content/drive/MyDrive/speech-infra/shards/<label>/`. Never in git.
+
+### Measurement and the fix (`results/pipeline.json`)
+First 4 of 18 files (12.28 h of audio) for before/after, then the full split:
+
+| run | batching | pin / prefetch / compile | wall | end-to-end h/min | GPU-stage capacity h/min | clips/batch | GPU util | GPU mem peak |
+|---|---|---|---|---|---|---|---|---|
+| baseline (4 files) | 16 clips | – / – / – | 134 s | 5.48 | 5.76 | 15.7 | 93.5% | 22.1 GiB |
+| tuned (4 files) | 4M samples | ✓ / ✓ / ✓ | 140 s | 5.27 | 5.39 | 24.5 | 77.2% | 6.6 GiB |
+| **tuned, no prefetch** (4 files) | 4M samples | ✓ / – / ✓ | 120 s | **6.14** | 6.42 | 24.5 | 86.4% | 6.5 GiB |
+| tuned, 8M (4 files) | 8M samples | ✓ / – / ✓ | 121 s | 6.10 | 6.47 | 49.1 | 85.5% | 22.2 GiB |
+| **full (18 files, 53.55 h)** | 4M samples | ✓ / – / ✓ | 481 s | **6.68** | 6.90 | 25.3 | 94.0% | 8.0 GiB |
+
+In every run, 4 CPU workers could have decoded 357–474 h/min and VAD'd 67–68 h/min. Workers were
+busy 11–13% of the time, system CPU was 14–16%, and the main thread waited for decoded clips 0.5–3% of
+the time. Shard writing could handle ~600–1000 h/min.
+
+**Slowest stage: SNAC encode on the GPU**, ~5.8 h/min at baseline with the GPU 93% busy.
+- **Why:** the encoder runs at the full 24 kHz sample rate. A profile showed **~60% of its GPU time
+  is element-by-element arithmetic** (27% the fused Snake activation, 34% other elementwise kernels),
+  17% depthwise convolutions and only 17% matrix-multiply convolutions. So it's limited by memory
+  bandwidth, not arithmetic.
+- **Options measured** on fixed batches (`encode_microbench` in the JSON):
+  - `cudnn.benchmark`: +0%.
+  - fp16 autocast: +12%, but changes 3–8% of the codes.
+  - bf16: changes 27–42% of the codes.
+  - **`torch.compile` of the encoder** (fuses the elementwise chains): **1.25×** with 99.4–99.9% of
+    codes identical. Compiling `SNAC.encode` itself hits a dynamo guard bug in its padding code, so only
+    `.encoder` is compiled.
+- **Fix:** compile the encoder **and** batch by a 4M-sample budget. Compiled kernels are cheaper per
+  sample but cost more per call, so they need big batches: on 40 real batches, compile + 4M gave 7.15
+  h/min vs 5.6 eager. The budget also caps memory (22 → 6.6–8 GiB).
+- **Prefetch hurt (5.27 h/min)**, so it's off. The compiled encoder launches its fused kernels from
+  Python, and a prefetch thread competing for Python's lock (GIL) left the GPU idle 23% of the time.
+- **8M budget:** no gain (6.10) and memory back to 22 GiB, so 4M stays.
+- **Result:** +12% on the same 4 files (5.48 → 6.14 h/min). The full run reached 6.68 h/min, partly
+  because the one-time ~7 s compile is spread over 4× more audio.
+- **The pipeline is still GPU-bound.** Further gains would need a cheaper encoder (a custom fused
+  Snake/depthwise kernel), fp16 codes (they differ from fp32), or a second GPU. CPU stages have 10×
+  headroom.
+
+### Output and validation (`results/pipeline.json` "validation", `scripts/validate_shards.py`)
+- **Totals:** 33,113 clips, 53.44 h after trimming (53.55 h before), 15,898,071 tokens, 14 shards,
+  32.9 MB (zstd).
+- **Tokens per audio hour: 297,483** (82.63/s). That's 7 × 24000 / 2048 = 82.03/s, plus each clip's
+  last partial frame rounded up (~3.5 tokens per clip).
+- **Every clip passed:** n_tokens = 7 × n_frames, n_frames = ceil(duration × 24000 / 2048), and every
+  id in its position's range (0 failures).
+- **5 random clips decoded back** with SNAC (fp32, noise off) against the original trimmed audio:
+  - waveform SNR 1.9–5.8 dB (mean 3.6). A ~1 kbps neural codec keeps how speech sounds, not the exact
+    waveform (phase), so this is expected;
+  - **log-mel SNR 16.8–19.4 dB (mean 18.1)**, log-mel L1 0.69.
+- **Same clips re-encoded alone with eager SNAC:** 97.5–98.4% token agreement (batch padding near clip
+  ends + compile), and identical reconstruction quality (log-mel SNR 18.10 vs 18.08 dB).
+- **Listening pair:** `results/samples/pipeline/5678_43301_000018_000001_{original,reconstructed}.wav`.
 
 ## Measurement methodology
 

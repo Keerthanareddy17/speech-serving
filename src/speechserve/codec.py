@@ -74,6 +74,28 @@ def frames_to_layers(frames) -> list[np.ndarray]:
     return [f[:, 0], f[:, [1, 4]].reshape(-1), f[:, [2, 3, 5, 6]].reshape(-1)]
 
 
+def layers_to_frames(l0, l1, l2) -> np.ndarray:
+    """Inverse of `frames_to_layers`: 3 SNAC code layers (n, 2n, 4n) -> [n, 7] frames in Orpheus order
+    [l0, l1a, l2a, l2b, l1b, l2c, l2d] (decoder.py `convert_to_audio`, read backwards)."""
+    l0, l1, l2 = (np.asarray(x, dtype=np.int64).reshape(-1) for x in (l0, l1, l2))
+    n = len(l0)
+    assert len(l1) == 2 * n and len(l2) == 4 * n, (len(l0), len(l1), len(l2))
+    f = np.empty((n, C.TOKENS_PER_FRAME), dtype=np.int64)
+    f[:, 0] = l0
+    f[:, [1, 4]] = l1.reshape(n, 2)
+    f[:, [2, 3, 5, 6]] = l2.reshape(n, 4)
+    return f
+
+
+def frames_to_token_ids(frames) -> np.ndarray:
+    """[n, 7] SNAC codes -> flat Orpheus token ids: id = code + 128266 + (position % 7) * 4096
+    (inverse of `token_to_code`)."""
+    f = np.asarray(frames, dtype=np.int64).reshape(-1, C.TOKENS_PER_FRAME)
+    assert f.min(initial=0) >= 0 and f.max(initial=0) < C.CODEBOOK_SIZE
+    offsets = C.AUDIO_TOKEN_BASE + np.arange(C.TOKENS_PER_FRAME) * C.CODEBOOK_SIZE
+    return (f + offsets).reshape(-1)
+
+
 # ---- 2. when to decode, what to keep -----------------------------------------------------------------
 @dataclass(frozen=True)
 class Window:
