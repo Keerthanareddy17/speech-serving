@@ -1,0 +1,1054 @@
+{
+  "w4a16_lmhead": {
+    "date": "2026-10-31T07:24:14+00:00",
+    "gpu": "NVIDIA L4",
+    "model": "/content/drive/MyDrive/speech-infra/models/orpheus-3b-w4a16-lmhead",
+    "vllm_version": "0.32.0",
+    "torch_version": "2.13.0+cu130",
+    "python_version": "3.13.16",
+    "config": {
+      "preset": "w4a16_lmhead",
+      "engine": {
+        "tokenizer": "canopylabs/orpheus-3b-0.1-pretrained",
+        "dtype": "bfloat16",
+        "max_model_len": 4096,
+        "gpu_memory_utilization": 0.85,
+        "model": "/content/drive/MyDrive/speech-infra/models/orpheus-3b-w4a16-lmhead"
+      },
+      "sampling": {
+        "temperature": 0.6,
+        "top_p": 0.8,
+        "repetition_penalty": 1.3,
+        "max_tokens": 3000,
+        "stop_token_ids": [
+          128258
+        ],
+        "seed": 0
+      },
+      "chunk": {
+        "first_chunk_frames": 1,
+        "chunk_frames": 1,
+        "left_context": 1,
+        "right_context": 2,
+        "skip_first_frame": true,
+        "flush_tail": true
+      },
+      "voice": "tara",
+      "snac_model": "hubertsiuzdak/snac_24khz",
+      "timed_runs_per_text": 10,
+      "warmup": "one full stream per text, same params",
+      "snac_noise": "on (model default) for all timed runs"
+    },
+    "model_load_s": 71.9,
+    "kv_cache_tokens": 138672,
+    "texts": {
+      "sentence": {
+        "text": "Hi, I'm testing a realtime speech server on a single L4 GPU.",
+        "distinct_token_counts": [
+          498
+        ],
+        "summary": {
+          "ttfa_ms": {
+            "p50": 246.866,
+            "p95": 248.696,
+            "min": 243.624,
+            "max": 248.897
+          },
+          "gap_count": {
+            "p50": 0.0,
+            "p95": 0.0,
+            "min": 0.0,
+            "max": 0.0
+          },
+          "gap_total_ms": {
+            "p50": 0.0,
+            "p95": 0.0,
+            "min": 0.0,
+            "max": 0.0
+          },
+          "buffer_needed_ms": {
+            "p50": 0.0,
+            "p95": 0.0,
+            "min": 0.0,
+            "max": 0.0
+          },
+          "total_tokens": {
+            "p50": 498.0,
+            "p95": 498.0,
+            "min": 498.0,
+            "max": 498.0
+          },
+          "audio_frames": {
+            "p50": 71.0,
+            "p95": 71.0,
+            "min": 71.0,
+            "max": 71.0
+          },
+          "audio_s": {
+            "p50": 5.973,
+            "p95": 5.973,
+            "min": 5.973,
+            "max": 5.973
+          },
+          "wall_s": {
+            "p50": 4.279,
+            "p95": 4.287,
+            "min": 4.259,
+            "max": 4.287
+          },
+          "rtf": {
+            "p50": 0.716,
+            "p95": 0.718,
+            "min": 0.713,
+            "max": 0.718
+          },
+          "chunks": {
+            "p50": 69.0,
+            "p95": 69.0,
+            "min": 69.0,
+            "max": 69.0
+          },
+          "snac_ms_mean": {
+            "p50": 16.767,
+            "p95": 17.049,
+            "min": 15.042,
+            "max": 17.104
+          },
+          "snac_ms_total": {
+            "p50": 1156.921,
+            "p95": 1176.399,
+            "min": 1037.915,
+            "max": 1180.15
+          }
+        },
+        "runs": [
+          {
+            "ttfa_ms": 245.041,
+            "gap_count": 0,
+            "gap_total_ms": 0.0,
+            "buffer_needed_ms": 0.0,
+            "total_tokens": 498,
+            "audio_frames": 71,
+            "audio_s": 5.973,
+            "wall_s": 4.259,
+            "rtf": 0.713,
+            "chunks": 69,
+            "snac_ms_mean": 16.983,
+            "snac_ms_total": 1171.814
+          },
+          {
+            "ttfa_ms": 245.39,
+            "gap_count": 0,
+            "gap_total_ms": 0.0,
+            "buffer_needed_ms": 0.0,
+            "total_tokens": 498,
+            "audio_frames": 71,
+            "audio_s": 5.973,
+            "wall_s": 4.263,
+            "rtf": 0.714,
+            "chunks": 69,
+            "snac_ms_mean": 17.104,
+            "snac_ms_total": 1180.15
+          },
+          {
+            "ttfa_ms": 246.852,
+            "gap_count": 0,
+            "gap_total_ms": 0.0,
+            "buffer_needed_ms": 0.0,
+            "total_tokens": 498,
+            "audio_frames": 71,
+            "audio_s": 5.973,
+            "wall_s": 4.268,
+            "rtf": 0.715,
+            "chunks": 69,
+            "snac_ms_mean": 16.978,
+            "snac_ms_total": 1171.466
+          },
+          {
+            "ttfa_ms": 246.888,
+            "gap_count": 0,
+            "gap_total_ms": 0.0,
+            "buffer_needed_ms": 0.0,
+            "total_tokens": 498,
+            "audio_frames": 71,
+            "audio_s": 5.973,
+            "wall_s": 4.272,
+            "rtf": 0.715,
+            "chunks": 69,
+            "snac_ms_mean": 16.803,
+            "snac_ms_total": 1159.428
+          },
+          {
+            "ttfa_ms": 246.88,
+            "gap_count": 0,
+            "gap_total_ms": 0.0,
+            "buffer_needed_ms": 0.0,
+            "total_tokens": 498,
+            "audio_frames": 71,
+            "audio_s": 5.973,
+            "wall_s": 4.277,
+            "rtf": 0.716,
+            "chunks": 69,
+            "snac_ms_mean": 16.731,
+            "snac_ms_total": 1154.415
+          },
+          {
+            "ttfa_ms": 247.999,
+            "gap_count": 0,
+            "gap_total_ms": 0.0,
+            "buffer_needed_ms": 0.0,
+            "total_tokens": 498,
+            "audio_frames": 71,
+            "audio_s": 5.973,
+            "wall_s": 4.282,
+            "rtf": 0.717,
+            "chunks": 69,
+            "snac_ms_mean": 16.837,
+            "snac_ms_total": 1161.782
+          },
+          {
+            "ttfa_ms": 248.451,
+            "gap_count": 0,
+            "gap_total_ms": 0.0,
+            "buffer_needed_ms": 0.0,
+            "total_tokens": 498,
+            "audio_frames": 71,
+            "audio_s": 5.973,
+            "wall_s": 4.287,
+            "rtf": 0.718,
+            "chunks": 69,
+            "snac_ms_mean": 16.719,
+            "snac_ms_total": 1153.577
+          },
+          {
+            "ttfa_ms": 248.897,
+            "gap_count": 0,
+            "gap_total_ms": 0.0,
+            "buffer_needed_ms": 0.0,
+            "total_tokens": 498,
+            "audio_frames": 71,
+            "audio_s": 5.973,
+            "wall_s": 4.287,
+            "rtf": 0.718,
+            "chunks": 69,
+            "snac_ms_mean": 16.139,
+            "snac_ms_total": 1113.614
+          },
+          {
+            "ttfa_ms": 243.624,
+            "gap_count": 0,
+            "gap_total_ms": 0.0,
+            "buffer_needed_ms": 0.0,
+            "total_tokens": 498,
+            "audio_frames": 71,
+            "audio_s": 5.973,
+            "wall_s": 4.284,
+            "rtf": 0.717,
+            "chunks": 69,
+            "snac_ms_mean": 15.393,
+            "snac_ms_total": 1062.099
+          },
+          {
+            "ttfa_ms": 245.879,
+            "gap_count": 0,
+            "gap_total_ms": 0.0,
+            "buffer_needed_ms": 0.0,
+            "total_tokens": 498,
+            "audio_frames": 71,
+            "audio_s": 5.973,
+            "wall_s": 4.28,
+            "rtf": 0.717,
+            "chunks": 69,
+            "snac_ms_mean": 15.042,
+            "snac_ms_total": 1037.915
+          }
+        ]
+      },
+      "paragraph": {
+        "text": "Streaming speech synthesis is mostly a race against the listener. The model has to produce each slice of audio before the previous one finishes playing, or the voice stutters. On a single small GPU, that means every millisecond of decoding matters, from the matrix math all the way to the final audio codec.",
+        "distinct_token_counts": [
+          1345
+        ],
+        "summary": {
+          "ttfa_ms": {
+            "p50": 245.483,
+            "p95": 246.608,
+            "min": 243.771,
+            "max": 246.674
+          },
+          "gap_count": {
+            "p50": 0.0,
+            "p95": 0.0,
+            "min": 0.0,
+            "max": 0.0
+          },
+          "gap_total_ms": {
+            "p50": 0.0,
+            "p95": 0.0,
+            "min": 0.0,
+            "max": 0.0
+          },
+          "buffer_needed_ms": {
+            "p50": 0.0,
+            "p95": 0.0,
+            "min": 0.0,
+            "max": 0.0
+          },
+          "total_tokens": {
+            "p50": 1345.0,
+            "p95": 1345.0,
+            "min": 1345.0,
+            "max": 1345.0
+          },
+          "audio_frames": {
+            "p50": 192.0,
+            "p95": 192.0,
+            "min": 192.0,
+            "max": 192.0
+          },
+          "audio_s": {
+            "p50": 16.299,
+            "p95": 16.299,
+            "min": 16.299,
+            "max": 16.299
+          },
+          "wall_s": {
+            "p50": 11.823,
+            "p95": 11.874,
+            "min": 11.791,
+            "max": 11.874
+          },
+          "rtf": {
+            "p50": 0.725,
+            "p95": 0.729,
+            "min": 0.723,
+            "max": 0.729
+          },
+          "chunks": {
+            "p50": 190.0,
+            "p95": 190.0,
+            "min": 190.0,
+            "max": 190.0
+          },
+          "snac_ms_mean": {
+            "p50": 15.033,
+            "p95": 15.451,
+            "min": 14.96,
+            "max": 15.509
+          },
+          "snac_ms_total": {
+            "p50": 2856.269,
+            "p95": 2935.659,
+            "min": 2842.403,
+            "max": 2946.629
+          }
+        },
+        "runs": [
+          {
+            "ttfa_ms": 245.478,
+            "gap_count": 0,
+            "gap_total_ms": 0.0,
+            "buffer_needed_ms": 0.0,
+            "total_tokens": 1345,
+            "audio_frames": 192,
+            "audio_s": 16.299,
+            "wall_s": 11.873,
+            "rtf": 0.728,
+            "chunks": 190,
+            "snac_ms_mean": 15.509,
+            "snac_ms_total": 2946.629
+          },
+          {
+            "ttfa_ms": 246.674,
+            "gap_count": 0,
+            "gap_total_ms": 0.0,
+            "buffer_needed_ms": 0.0,
+            "total_tokens": 1345,
+            "audio_frames": 192,
+            "audio_s": 16.299,
+            "wall_s": 11.874,
+            "rtf": 0.729,
+            "chunks": 190,
+            "snac_ms_mean": 15.38,
+            "snac_ms_total": 2922.251
+          },
+          {
+            "ttfa_ms": 246.528,
+            "gap_count": 0,
+            "gap_total_ms": 0.0,
+            "buffer_needed_ms": 0.0,
+            "total_tokens": 1345,
+            "audio_frames": 192,
+            "audio_s": 16.299,
+            "wall_s": 11.838,
+            "rtf": 0.726,
+            "chunks": 190,
+            "snac_ms_mean": 15.114,
+            "snac_ms_total": 2871.606
+          },
+          {
+            "ttfa_ms": 245.166,
+            "gap_count": 0,
+            "gap_total_ms": 0.0,
+            "buffer_needed_ms": 0.0,
+            "total_tokens": 1345,
+            "audio_frames": 192,
+            "audio_s": 16.299,
+            "wall_s": 11.814,
+            "rtf": 0.725,
+            "chunks": 190,
+            "snac_ms_mean": 15.011,
+            "snac_ms_total": 2852.008
+          },
+          {
+            "ttfa_ms": 246.511,
+            "gap_count": 0,
+            "gap_total_ms": 0.0,
+            "buffer_needed_ms": 0.0,
+            "total_tokens": 1345,
+            "audio_frames": 192,
+            "audio_s": 16.299,
+            "wall_s": 11.792,
+            "rtf": 0.723,
+            "chunks": 190,
+            "snac_ms_mean": 14.96,
+            "snac_ms_total": 2842.403
+          },
+          {
+            "ttfa_ms": 243.829,
+            "gap_count": 0,
+            "gap_total_ms": 0.0,
+            "buffer_needed_ms": 0.0,
+            "total_tokens": 1345,
+            "audio_frames": 192,
+            "audio_s": 16.299,
+            "wall_s": 11.791,
+            "rtf": 0.723,
+            "chunks": 190,
+            "snac_ms_mean": 15.038,
+            "snac_ms_total": 2857.261
+          },
+          {
+            "ttfa_ms": 246.094,
+            "gap_count": 0,
+            "gap_total_ms": 0.0,
+            "buffer_needed_ms": 0.0,
+            "total_tokens": 1345,
+            "audio_frames": 192,
+            "audio_s": 16.299,
+            "wall_s": 11.802,
+            "rtf": 0.724,
+            "chunks": 190,
+            "snac_ms_mean": 15.028,
+            "snac_ms_total": 2855.277
+          },
+          {
+            "ttfa_ms": 244.206,
+            "gap_count": 0,
+            "gap_total_ms": 0.0,
+            "buffer_needed_ms": 0.0,
+            "total_tokens": 1345,
+            "audio_frames": 192,
+            "audio_s": 16.299,
+            "wall_s": 11.817,
+            "rtf": 0.725,
+            "chunks": 190,
+            "snac_ms_mean": 15.021,
+            "snac_ms_total": 2854.055
+          },
+          {
+            "ttfa_ms": 245.487,
+            "gap_count": 0,
+            "gap_total_ms": 0.0,
+            "buffer_needed_ms": 0.0,
+            "total_tokens": 1345,
+            "audio_frames": 192,
+            "audio_s": 16.299,
+            "wall_s": 11.829,
+            "rtf": 0.726,
+            "chunks": 190,
+            "snac_ms_mean": 14.994,
+            "snac_ms_total": 2848.853
+          },
+          {
+            "ttfa_ms": 243.771,
+            "gap_count": 0,
+            "gap_total_ms": 0.0,
+            "buffer_needed_ms": 0.0,
+            "total_tokens": 1345,
+            "audio_frames": 192,
+            "audio_s": 16.299,
+            "wall_s": 11.835,
+            "rtf": 0.726,
+            "chunks": 190,
+            "snac_ms_mean": 15.283,
+            "snac_ms_total": 2903.762
+          }
+        ]
+      }
+    },
+    "streaming_vs_whole": {
+      "compared_range": "whole-decode samples [2048:393216] (frames 1..191)",
+      "noise_floor_whole_vs_whole": {
+        "max_abs_diff": 0.06247450411319733,
+        "rms_diff": 0.002823640825226903,
+        "ref_rms": 0.043735187500715256,
+        "snr_db": 23.800432205200195,
+        "correlation": 0.9979154726395589
+      },
+      "stream_vs_whole_noise_on": {
+        "max_abs_diff": 0.06457269191741943,
+        "rms_diff": 0.0037268155720084906,
+        "ref_rms": 0.043735187500715256,
+        "snr_db": 21.389863967895508,
+        "correlation": 0.9963738520556238,
+        "n_boundaries": 189,
+        "max_jump_at_boundary": 0.07124556601047516,
+        "max_jump_excess_vs_whole": 0.028197191655635834,
+        "p99_9_jump_anywhere": 0.171393483877182,
+        "rms_diff_near_boundaries": 0.004384549800306559,
+        "rms_diff_elsewhere": 0.0036793274339288473
+      },
+      "stream_vs_whole_noise_off": {
+        "max_abs_diff": 0.04890700802206993,
+        "rms_diff": 0.0024179827887564898,
+        "ref_rms": 0.0437123067677021,
+        "snr_db": 25.14301109313965,
+        "correlation": 0.9984719540928048,
+        "n_boundaries": 189,
+        "max_jump_at_boundary": 0.06511996686458588,
+        "max_jump_excess_vs_whole": 0.02490304410457611,
+        "p99_9_jump_anywhere": 0.17044608294963837,
+        "rms_diff_near_boundaries": 0.003415418555960059,
+        "rms_diff_elsewhere": 0.0023373221047222614
+      }
+    },
+    "output_wav": "results/samples/step2_w4a16_lmhead_stream.wav"
+  },
+  "w4a16": {
+    "date": "2026-10-31T07:29:50+00:00",
+    "gpu": "NVIDIA L4",
+    "model": "/content/drive/MyDrive/speech-infra/models/orpheus-3b-w4a16",
+    "vllm_version": "0.32.0",
+    "torch_version": "2.13.0+cu130",
+    "python_version": "3.13.16",
+    "config": {
+      "preset": "w4a16",
+      "engine": {
+        "tokenizer": "canopylabs/orpheus-3b-0.1-pretrained",
+        "dtype": "bfloat16",
+        "max_model_len": 4096,
+        "gpu_memory_utilization": 0.85,
+        "model": "/content/drive/MyDrive/speech-infra/models/orpheus-3b-w4a16"
+      },
+      "sampling": {
+        "temperature": 0.6,
+        "top_p": 0.8,
+        "repetition_penalty": 1.3,
+        "max_tokens": 3000,
+        "stop_token_ids": [
+          128258
+        ],
+        "seed": 0
+      },
+      "chunk": {
+        "first_chunk_frames": 1,
+        "chunk_frames": 1,
+        "left_context": 1,
+        "right_context": 2,
+        "skip_first_frame": true,
+        "flush_tail": true
+      },
+      "voice": "tara",
+      "snac_model": "hubertsiuzdak/snac_24khz",
+      "timed_runs_per_text": 10,
+      "warmup": "one full stream per text, same params",
+      "snac_noise": "on (model default) for all timed runs"
+    },
+    "model_load_s": 68.0,
+    "kv_cache_tokens": 140816,
+    "texts": {
+      "sentence": {
+        "text": "Hi, I'm testing a realtime speech server on a single L4 GPU.",
+        "distinct_token_counts": [
+          421
+        ],
+        "summary": {
+          "ttfa_ms": {
+            "p50": 326.896,
+            "p95": 328.54,
+            "min": 324.751,
+            "max": 329.496
+          },
+          "gap_count": {
+            "p50": 0.0,
+            "p95": 0.0,
+            "min": 0.0,
+            "max": 0.0
+          },
+          "gap_total_ms": {
+            "p50": 0.0,
+            "p95": 0.0,
+            "min": 0.0,
+            "max": 0.0
+          },
+          "buffer_needed_ms": {
+            "p50": 0.0,
+            "p95": 0.0,
+            "min": 0.0,
+            "max": 0.0
+          },
+          "total_tokens": {
+            "p50": 421.0,
+            "p95": 421.0,
+            "min": 421.0,
+            "max": 421.0
+          },
+          "audio_frames": {
+            "p50": 60.0,
+            "p95": 60.0,
+            "min": 60.0,
+            "max": 60.0
+          },
+          "audio_s": {
+            "p50": 5.035,
+            "p95": 5.035,
+            "min": 5.035,
+            "max": 5.035
+          },
+          "wall_s": {
+            "p50": 4.824,
+            "p95": 4.839,
+            "min": 4.818,
+            "max": 4.84
+          },
+          "rtf": {
+            "p50": 0.958,
+            "p95": 0.961,
+            "min": 0.957,
+            "max": 0.961
+          },
+          "chunks": {
+            "p50": 58.0,
+            "p95": 58.0,
+            "min": 58.0,
+            "max": 58.0
+          },
+          "snac_ms_mean": {
+            "p50": 17.138,
+            "p95": 17.261,
+            "min": 15.359,
+            "max": 17.267
+          },
+          "snac_ms_total": {
+            "p50": 994.005,
+            "p95": 1001.162,
+            "min": 890.847,
+            "max": 1001.465
+          }
+        },
+        "runs": [
+          {
+            "ttfa_ms": 326.477,
+            "gap_count": 0,
+            "gap_total_ms": 0.0,
+            "buffer_needed_ms": 0.0,
+            "total_tokens": 421,
+            "audio_frames": 60,
+            "audio_s": 5.035,
+            "wall_s": 4.837,
+            "rtf": 0.961,
+            "chunks": 58,
+            "snac_ms_mean": 15.359,
+            "snac_ms_total": 890.847
+          },
+          {
+            "ttfa_ms": 329.496,
+            "gap_count": 0,
+            "gap_total_ms": 0.0,
+            "buffer_needed_ms": 0.0,
+            "total_tokens": 421,
+            "audio_frames": 60,
+            "audio_s": 5.035,
+            "wall_s": 4.84,
+            "rtf": 0.961,
+            "chunks": 58,
+            "snac_ms_mean": 16.896,
+            "snac_ms_total": 979.989
+          },
+          {
+            "ttfa_ms": 324.751,
+            "gap_count": 0,
+            "gap_total_ms": 0.0,
+            "buffer_needed_ms": 0.0,
+            "total_tokens": 421,
+            "audio_frames": 60,
+            "audio_s": 5.035,
+            "wall_s": 4.832,
+            "rtf": 0.96,
+            "chunks": 58,
+            "snac_ms_mean": 16.728,
+            "snac_ms_total": 970.221
+          },
+          {
+            "ttfa_ms": 327.372,
+            "gap_count": 0,
+            "gap_total_ms": 0.0,
+            "buffer_needed_ms": 0.0,
+            "total_tokens": 421,
+            "audio_frames": 60,
+            "audio_s": 5.035,
+            "wall_s": 4.832,
+            "rtf": 0.96,
+            "chunks": 58,
+            "snac_ms_mean": 17.267,
+            "snac_ms_total": 1001.465
+          },
+          {
+            "ttfa_ms": 327.265,
+            "gap_count": 0,
+            "gap_total_ms": 0.0,
+            "buffer_needed_ms": 0.0,
+            "total_tokens": 421,
+            "audio_frames": 60,
+            "audio_s": 5.035,
+            "wall_s": 4.825,
+            "rtf": 0.958,
+            "chunks": 58,
+            "snac_ms_mean": 17.123,
+            "snac_ms_total": 993.162
+          },
+          {
+            "ttfa_ms": 326.931,
+            "gap_count": 0,
+            "gap_total_ms": 0.0,
+            "buffer_needed_ms": 0.0,
+            "total_tokens": 421,
+            "audio_frames": 60,
+            "audio_s": 5.035,
+            "wall_s": 4.823,
+            "rtf": 0.958,
+            "chunks": 58,
+            "snac_ms_mean": 17.031,
+            "snac_ms_total": 987.782
+          },
+          {
+            "ttfa_ms": 327.343,
+            "gap_count": 0,
+            "gap_total_ms": 0.0,
+            "buffer_needed_ms": 0.0,
+            "total_tokens": 421,
+            "audio_frames": 60,
+            "audio_s": 5.035,
+            "wall_s": 4.822,
+            "rtf": 0.958,
+            "chunks": 58,
+            "snac_ms_mean": 17.21,
+            "snac_ms_total": 998.205
+          },
+          {
+            "ttfa_ms": 326.844,
+            "gap_count": 0,
+            "gap_total_ms": 0.0,
+            "buffer_needed_ms": 0.0,
+            "total_tokens": 421,
+            "audio_frames": 60,
+            "audio_s": 5.035,
+            "wall_s": 4.818,
+            "rtf": 0.957,
+            "chunks": 58,
+            "snac_ms_mean": 17.153,
+            "snac_ms_total": 994.847
+          },
+          {
+            "ttfa_ms": 326.862,
+            "gap_count": 0,
+            "gap_total_ms": 0.0,
+            "buffer_needed_ms": 0.0,
+            "total_tokens": 421,
+            "audio_frames": 60,
+            "audio_s": 5.035,
+            "wall_s": 4.818,
+            "rtf": 0.957,
+            "chunks": 58,
+            "snac_ms_mean": 17.156,
+            "snac_ms_total": 995.041
+          },
+          {
+            "ttfa_ms": 325.421,
+            "gap_count": 0,
+            "gap_total_ms": 0.0,
+            "buffer_needed_ms": 0.0,
+            "total_tokens": 421,
+            "audio_frames": 60,
+            "audio_s": 5.035,
+            "wall_s": 4.819,
+            "rtf": 0.957,
+            "chunks": 58,
+            "snac_ms_mean": 17.255,
+            "snac_ms_total": 1000.792
+          }
+        ]
+      },
+      "paragraph": {
+        "text": "Streaming speech synthesis is mostly a race against the listener. The model has to produce each slice of audio before the previous one finishes playing, or the voice stutters. On a single small GPU, that means every millisecond of decoding matters, from the matrix math all the way to the final audio codec.",
+        "distinct_token_counts": [
+          1492
+        ],
+        "summary": {
+          "ttfa_ms": {
+            "p50": 324.407,
+            "p95": 327.436,
+            "min": 323.026,
+            "max": 327.485
+          },
+          "gap_count": {
+            "p50": 0.0,
+            "p95": 0.55,
+            "min": 0.0,
+            "max": 1.0
+          },
+          "gap_total_ms": {
+            "p50": 0.0,
+            "p95": 0.157,
+            "min": 0.0,
+            "max": 0.285
+          },
+          "buffer_needed_ms": {
+            "p50": 0.0,
+            "p95": 0.157,
+            "min": 0.0,
+            "max": 0.285
+          },
+          "total_tokens": {
+            "p50": 1492.0,
+            "p95": 1492.0,
+            "min": 1492.0,
+            "max": 1492.0
+          },
+          "audio_frames": {
+            "p50": 213.0,
+            "p95": 213.0,
+            "min": 213.0,
+            "max": 213.0
+          },
+          "audio_s": {
+            "p50": 18.091,
+            "p95": 18.091,
+            "min": 18.091,
+            "max": 18.091
+          },
+          "wall_s": {
+            "p50": 17.429,
+            "p95": 17.476,
+            "min": 17.402,
+            "max": 17.48
+          },
+          "rtf": {
+            "p50": 0.963,
+            "p95": 0.966,
+            "min": 0.962,
+            "max": 0.966
+          },
+          "chunks": {
+            "p50": 211.0,
+            "p95": 211.0,
+            "min": 211.0,
+            "max": 211.0
+          },
+          "snac_ms_mean": {
+            "p50": 15.188,
+            "p95": 17.043,
+            "min": 14.947,
+            "max": 17.192
+          },
+          "snac_ms_total": {
+            "p50": 3204.618,
+            "p95": 3596.128,
+            "min": 3153.856,
+            "max": 3627.41
+          }
+        },
+        "runs": [
+          {
+            "ttfa_ms": 327.485,
+            "gap_count": 0,
+            "gap_total_ms": 0.0,
+            "buffer_needed_ms": 0.0,
+            "total_tokens": 1492,
+            "audio_frames": 213,
+            "audio_s": 18.091,
+            "wall_s": 17.456,
+            "rtf": 0.965,
+            "chunks": 211,
+            "snac_ms_mean": 17.192,
+            "snac_ms_total": 3627.41
+          },
+          {
+            "ttfa_ms": 327.377,
+            "gap_count": 1,
+            "gap_total_ms": 0.285,
+            "buffer_needed_ms": 0.285,
+            "total_tokens": 1492,
+            "audio_frames": 213,
+            "audio_s": 18.091,
+            "wall_s": 17.48,
+            "rtf": 0.966,
+            "chunks": 211,
+            "snac_ms_mean": 16.862,
+            "snac_ms_total": 3557.894
+          },
+          {
+            "ttfa_ms": 326.788,
+            "gap_count": 0,
+            "gap_total_ms": 0.0,
+            "buffer_needed_ms": 0.0,
+            "total_tokens": 1492,
+            "audio_frames": 213,
+            "audio_s": 18.091,
+            "wall_s": 17.471,
+            "rtf": 0.966,
+            "chunks": 211,
+            "snac_ms_mean": 15.907,
+            "snac_ms_total": 3356.359
+          },
+          {
+            "ttfa_ms": 324.194,
+            "gap_count": 0,
+            "gap_total_ms": 0.0,
+            "buffer_needed_ms": 0.0,
+            "total_tokens": 1492,
+            "audio_frames": 213,
+            "audio_s": 18.091,
+            "wall_s": 17.439,
+            "rtf": 0.964,
+            "chunks": 211,
+            "snac_ms_mean": 15.095,
+            "snac_ms_total": 3185.031
+          },
+          {
+            "ttfa_ms": 324.55,
+            "gap_count": 0,
+            "gap_total_ms": 0.0,
+            "buffer_needed_ms": 0.0,
+            "total_tokens": 1492,
+            "audio_frames": 213,
+            "audio_s": 18.091,
+            "wall_s": 17.419,
+            "rtf": 0.963,
+            "chunks": 211,
+            "snac_ms_mean": 15.231,
+            "snac_ms_total": 3213.72
+          },
+          {
+            "ttfa_ms": 323.026,
+            "gap_count": 0,
+            "gap_total_ms": 0.0,
+            "buffer_needed_ms": 0.0,
+            "total_tokens": 1492,
+            "audio_frames": 213,
+            "audio_s": 18.091,
+            "wall_s": 17.402,
+            "rtf": 0.962,
+            "chunks": 211,
+            "snac_ms_mean": 15.064,
+            "snac_ms_total": 3178.509
+          },
+          {
+            "ttfa_ms": 324.263,
+            "gap_count": 0,
+            "gap_total_ms": 0.0,
+            "buffer_needed_ms": 0.0,
+            "total_tokens": 1492,
+            "audio_frames": 213,
+            "audio_s": 18.091,
+            "wall_s": 17.417,
+            "rtf": 0.963,
+            "chunks": 211,
+            "snac_ms_mean": 15.194,
+            "snac_ms_total": 3205.976
+          },
+          {
+            "ttfa_ms": 325.02,
+            "gap_count": 0,
+            "gap_total_ms": 0.0,
+            "buffer_needed_ms": 0.0,
+            "total_tokens": 1492,
+            "audio_frames": 213,
+            "audio_s": 18.091,
+            "wall_s": 17.431,
+            "rtf": 0.964,
+            "chunks": 211,
+            "snac_ms_mean": 15.181,
+            "snac_ms_total": 3203.261
+          },
+          {
+            "ttfa_ms": 323.605,
+            "gap_count": 0,
+            "gap_total_ms": 0.0,
+            "buffer_needed_ms": 0.0,
+            "total_tokens": 1492,
+            "audio_frames": 213,
+            "audio_s": 18.091,
+            "wall_s": 17.427,
+            "rtf": 0.963,
+            "chunks": 211,
+            "snac_ms_mean": 15.022,
+            "snac_ms_total": 3169.603
+          },
+          {
+            "ttfa_ms": 323.409,
+            "gap_count": 0,
+            "gap_total_ms": 0.0,
+            "buffer_needed_ms": 0.0,
+            "total_tokens": 1492,
+            "audio_frames": 213,
+            "audio_s": 18.091,
+            "wall_s": 17.421,
+            "rtf": 0.963,
+            "chunks": 211,
+            "snac_ms_mean": 14.947,
+            "snac_ms_total": 3153.856
+          }
+        ]
+      }
+    },
+    "streaming_vs_whole": {
+      "compared_range": "whole-decode samples [2048:436224] (frames 1..212)",
+      "noise_floor_whole_vs_whole": {
+        "max_abs_diff": 0.07944144308567047,
+        "rms_diff": 0.00254380377009511,
+        "ref_rms": 0.04890773072838783,
+        "snr_db": 25.677879333496094,
+        "correlation": 0.9986472553067025
+      },
+      "stream_vs_whole_noise_on": {
+        "max_abs_diff": 0.07092155516147614,
+        "rms_diff": 0.0036187591031193733,
+        "ref_rms": 0.04890773072838783,
+        "snr_db": 22.616357803344727,
+        "correlation": 0.9972681520834574,
+        "n_boundaries": 210,
+        "max_jump_at_boundary": 0.09319601207971573,
+        "max_jump_excess_vs_whole": 0.04060271382331848,
+        "p99_9_jump_anywhere": 0.14001314342021942,
+        "rms_diff_near_boundaries": 0.004247331991791725,
+        "rms_diff_elsewhere": 0.0035733883269131184
+      },
+      "stream_vs_whole_noise_off": {
+        "max_abs_diff": 0.0360601544380188,
+        "rms_diff": 0.002540367189794779,
+        "ref_rms": 0.048897162079811096,
+        "snr_db": 25.687744140625,
+        "correlation": 0.9986541767668702,
+        "n_boundaries": 210,
+        "max_jump_at_boundary": 0.09050415456295013,
+        "max_jump_excess_vs_whole": 0.01920236647129059,
+        "p99_9_jump_anywhere": 0.14018158614635468,
+        "rms_diff_near_boundaries": 0.003600176889449358,
+        "rms_diff_elsewhere": 0.002454378642141819
+      }
+    },
+    "output_wav": "results/samples/step2_w4a16_stream.wav"
+  }
+}

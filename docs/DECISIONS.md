@@ -228,6 +228,100 @@ Two details:
 - Audio duration in `step1d_overhead.json` is computed from the frame count
   (frames × 2048 / 24000), which equals the SNAC output length.
 
+## Streaming engine + SNAC decode (step 2, 2026-10-31)
+
+### Pieces
+- `src/speechserve/config.py`: model presets (`bf16`, `w4a16`, `w4a16_lmhead`; default
+  `w4a16_lmhead`), engine flags, sampling, the Orpheus token layout, and chunk settings. It contains
+  the step 1 values, not re-derived ones. One change: **`max_tokens` 1200 → 3000**. 1200 tokens is
+  only ~14.6 s of audio, so longer paragraphs were cut off. Prompt + 3000 still fits in
+  `max_model_len=4096`.
+- `src/speechserve/engine.py`: `TTSEngine` wraps vLLM 0.32's `AsyncLLM` (the engine core runs in its
+  own process). `stream(text, voice)` is an async generator of new token ids
+  (`output_kind=DELTA`, `detokenize=False`). Each call is its own vLLM request with a unique id, so one
+  instance serves many concurrent streams. A request whose consumer stops early is aborted.
+- `src/speechserve/codec.py`: three layers.
+  - `FrameAssembler`: ids → 7-code frames.
+  - `ChunkPlanner`: when to decode and which samples to keep.
+  - `SNACDecoder`: GPU decode on one dedicated worker thread, off the event loop, timed per call.
+- Streaming decode follows upstream `decoder.py` `tokens_decoder` / `convert_to_audio`
+  (canopyai/Orpheus-TTS @ e64661fe6d). Once 4 frames exist, every new frame triggers a decode of the
+  last 4 frames, keeping samples [2048:4096]. So each emitted frame gets 1 frame of left context and
+  2 of right context. Generalised: to emit frames [a, b), decode [a−1, b+2).
+  `ChunkConfig.first_chunk_frames` / `chunk_frames` set the chunk sizes (tuning comes in step 6). The
+  defaults (1/1) reproduce upstream exactly, including never emitting frame 0.
+  Deliberate difference from upstream: at end of stream the last 2 frames (~171 ms) are flushed with
+  whatever right context exists; upstream drops them.
+- `tests/test_chunking.py`: CPU-only checks.
+  - The id → code mapping and the 3-layer layout.
+  - The default plan equals upstream's windows.
+  - With a fake decoder, stitching emits every frame exactly once, in order, for several chunk sizes.
+
+### Single-stream results
+`results/step2_single_stream.json`, from `scripts/step2_stream.py`. Each config runs in its own process,
+with one warmup stream per text and then 10 timed streams per text. Default chunking (upstream). SNAC
+fp32 on the same GPU. p50 shown; p95 is within 1% except where noted.
+
+| config | text | tokens | audio | TTFA | gaps | buffer needed | RTF | SNAC/chunk | SNAC total |
+|---|---|---|---|---|---|---|---|---|---|
+| w4a16_lmhead | sentence | 498 | 5.97 s | 247 ms | 0 | 0 ms | 0.716 | 16.8 ms | 1.16 s |
+| w4a16_lmhead | paragraph | 1345 | 16.30 s | 245 ms | 0 | 0 ms | 0.725 | 15.0 ms | 2.86 s |
+| w4a16 | sentence | 421 | 5.04 s | 327 ms | 0 | 0 ms | 0.958 | 17.1 ms | 0.99 s |
+| w4a16 | paragraph | 1492 | 18.09 s | 324 ms | 0 (1 run: one 0.3 ms gap) | 0 ms (max 0.3) | 0.963 | 15.2 ms (p95 17.0) | 3.20 s |
+
+- **TTFA is mostly waiting for 4 frames.** Prefill plus 28 tokens is ~230 ms at 8.1 ms/token, or
+  ~305 ms at 10.9; one SNAC call adds ~17 ms. Step 6 can only lower it by changing the first window.
+- **Both configs stream without stalls, but w4a16 has almost no headroom.** Streaming RTF is
+  0.96 vs 0.89 generation-only. The 2 frames of right context give a small built-in lead, which is
+  why buffer needed stays ~0.
+- **SNAC costs ~0.7–0.8 ms per token of engine time.** Streaming runs at 8.8 ms/token (lmhead) and
+  11.7 (w4a16), vs 8.1 / 10.9 generation-only. SNAC decodes on the same GPU while vLLM generates, and
+  takes ~15–17 ms for every 4-frame window, about a quarter of the wall time. Most of that is likely
+  kernel-launch overhead on tiny inputs, not compute (not profiled yet).
+- **Concern for step 3:** one SNAC worker at ~15 ms per frame spends ~180 ms per second of audio per
+  stream, so it would saturate at ~5–6 concurrent streams. SNAC decode needs batching across streams
+  (or bigger chunks, or graphs/compile) before the server can scale.
+
+### Streaming vs whole-sequence decode (same tokens)
+On the last paragraph run, the run's own frames are also decoded in one SNAC call. The comparison
+covers frames 1..N−1, since frame 0 is never emitted.
+
+**SNAC 24 kHz is not deterministic:** its config has `noise: true`, so decoder `NoiseBlock`s add
+random noise on every decode. So there are three comparisons:
+
+| config | whole vs whole (noise floor) | stream vs whole, noise on | stream vs whole, noise off |
+|---|---|---|---|
+| w4a16_lmhead | 23.8 dB SNR | 21.4 dB | 25.1 dB, corr 0.9985 |
+| w4a16 | 25.7 dB | 22.6 dB | 25.7 dB, corr 0.9987 |
+
+- With noise off, the windowing error (25 dB) is no larger than the difference between two whole
+  decodes caused by SNAC's own noise.
+- **No clicks.** Across 189 / 210 chunk boundaries:
+  - the largest sample-to-sample jump at a boundary is 0.07 / 0.09, below the 99.9th-percentile jump
+    anywhere in the clip (0.17 / 0.14);
+  - it exceeds the whole decode's jump at the same sample by at most 0.03 / 0.04.
+- The error is slightly higher within 64 samples of a boundary (RMS 0.0034 vs 0.0023, noise off).
+  That's where the truncated context shows, but it stays small.
+- Stitched streams: `results/samples/step2_w4a16_lmhead_stream.wav`, `step2_w4a16_stream.wav`.
+- The production path keeps noise on (model default); noise off was used only for this comparison.
+
+### Same seed, different tokens: engine class and first request
+Step 2 produced 421 / 498 tokens for the step 1 sentence, while step 1d produced 435 / 463. A check
+(w4a16, one process per engine, two requests each):
+
+| engine | 1st request after load | 2nd request |
+|---|---|---|
+| offline `LLM` | 386 (max_tokens 1200) | 435 (max_tokens 3000) |
+| `AsyncLLM` | 491 (max_tokens 1200) | 421 (max_tokens 3000) |
+
+- `max_tokens` has no effect (step 1d got 435 at 1200 after a warmup).
+- Each engine class is deterministic after warmup, but `LLM` and `AsyncLLM` give different
+  sequences. Most likely their different defaults lead to different kernel shapes and numerics
+  (not investigated further).
+- **The first request after load differs from later ones in its tokens, not only its speed.** Warmup
+  is needed for reproducible tokens as well as timings.
+- So step 2 token counts are comparable within step 2, not with step 1.
+
 ## Tokenization pipeline
 
 ## Measurement methodology
